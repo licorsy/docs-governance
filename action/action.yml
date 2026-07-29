@@ -12,10 +12,15 @@ inputs:
     required: false
     default: '.docgov.config.js'
   base-sha:
+    # NAO escreva uma expressao de template aqui, nem como exemplo: o GitHub
+    # avalia expressoes no manifesto do action, e o contexto `github` nao
+    # existe nesse escopo — o action inteiro falha ao carregar, com
+    # "Unrecognized named-value: 'github'". Custou um CI vermelho para
+    # descobrir. O exemplo de uso fica no README.
     description: >-
-      Base commit for the version-bump rule. Pass
-      ${{ github.event.pull_request.base.sha }} on pull_request. Leave empty on
-      push — the rule abstains instead of failing when there is no base.
+      Base commit for the version-bump rule. On pull_request, pass the pull
+      request base sha. Leave empty on push — the rule abstains instead of
+      failing when there is no base to compare against.
     required: false
     default: ''
   node-version:

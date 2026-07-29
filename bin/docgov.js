@@ -239,12 +239,35 @@ const PRE_COMMIT = `#!/bin/sh
 exec node "$DOCGOV_BIN" check --changed
 `;
 
+function installHook(cwd) {
+  const hookDir = path.join(cwd, '.git', 'hooks');
+  if (!fs.existsSync(hookDir)) {
+    console.error('docgov: no .git/hooks — skipping hook install');
+    return false;
+  }
+  const hookPath = path.join(hookDir, 'pre-commit');
+  const bin = path.join(__dirname, 'docgov.js');
+  fs.writeFileSync(hookPath, PRE_COMMIT.replace('$DOCGOV_BIN', bin.split(path.sep).join('/')), 'utf8');
+  try { fs.chmodSync(hookPath, 0o755); } catch { /* Windows: sem bit de execução */ }
+  console.log(`installed .git/hooks/pre-commit -> ${bin}`);
+  return true;
+}
+
 function cmdInit(args) {
   const cwd = process.cwd();
   const target = path.join(cwd, '.docgov.config.js');
 
   if (fs.existsSync(target) && !args.flags.force) {
-    console.error('docgov: .docgov.config.js already exists (use --force to overwrite)');
+    // Config já existe: `--hook` sozinho ainda é um pedido legítimo — instalar
+    // o hook num repositório já configurado é o caso comum, e forçar --force
+    // para isso significaria sobrescrever uma config escrita à mão só para
+    // ganhar um hook.
+    if (args.flags.hook) {
+      console.log('.docgov.config.js already exists — keeping it');
+      installHook(cwd);
+      return 0;
+    }
+    console.error('docgov: .docgov.config.js already exists (use --force to overwrite, or --hook to only install the hook)');
     return 2;
   }
 
@@ -262,18 +285,7 @@ function cmdInit(args) {
   console.log(`  changelog marker: "${d.marker}"`);
   if (d.stale.length) console.log(`  possible frozen history (commented, not enabled): ${d.stale.join(', ')}`);
 
-  if (args.flags.hook) {
-    const hookDir = path.join(cwd, '.git', 'hooks');
-    if (!fs.existsSync(hookDir)) {
-      console.error('docgov: no .git/hooks — skipping hook install');
-      return 0;
-    }
-    const hookPath = path.join(hookDir, 'pre-commit');
-    const bin = path.join(__dirname, 'docgov.js');
-    fs.writeFileSync(hookPath, PRE_COMMIT.replace('$DOCGOV_BIN', bin.split(path.sep).join('/')), 'utf8');
-    try { fs.chmodSync(hookPath, 0o755); } catch { /* Windows: sem bit de execução */ }
-    console.log(`installed .git/hooks/pre-commit -> ${bin}`);
-  }
+  if (args.flags.hook) installHook(cwd);
 
   return 0;
 }
