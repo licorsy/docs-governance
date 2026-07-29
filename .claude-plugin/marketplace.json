@@ -1,0 +1,14 @@
+{
+  "name": "licorsy",
+  "owner": {
+    "name": "Licorsy",
+    "url": "https://github.com/licorsy"
+  },
+  "plugins": [
+    {
+      "name": "docs-governance",
+      "source": "./",
+      "description": "Deterministic documentation-consistency checks + the two subagents for what a script cannot decide."
+    }
+  ]
+}

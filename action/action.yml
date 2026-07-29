@@ -1,0 +1,46 @@
+name: 'docgov'
+description: 'Mechanical documentation-consistency checks driven by a per-repository .docgov.config.js'
+author: 'Licorsy'
+
+branding:
+  icon: 'check-square'
+  color: 'blue'
+
+inputs:
+  config:
+    description: 'Path to the config file, relative to the repository root'
+    required: false
+    default: '.docgov.config.js'
+  base-sha:
+    description: >-
+      Base commit for the version-bump rule. Pass
+      ${{ github.event.pull_request.base.sha }} on pull_request. Leave empty on
+      push — the rule abstains instead of failing when there is no base.
+    required: false
+    default: ''
+  node-version:
+    description: 'Node version to run the checks with'
+    required: false
+    default: '20'
+  rule:
+    description: 'Comma-separated rule ids to run (default: all enabled)'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run docgov
+      shell: bash
+      env:
+        BASE_SHA: ${{ inputs.base-sha }}
+        DOCGOV_CONFIG: ${{ inputs.config }}
+        DOCGOV_RULE: ${{ inputs.rule }}
+      run: |
+        args=(check --config "$DOCGOV_CONFIG")
+        [ -n "$DOCGOV_RULE" ] && args+=(--rule "$DOCGOV_RULE")
+        node "${{ github.action_path }}/../bin/docgov.js" "${args[@]}"

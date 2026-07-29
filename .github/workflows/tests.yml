@@ -1,0 +1,30 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run engine tests
+        run: node --test test/*.test.js
+
+      # Dogfooding: o motor roda contra este próprio repositório. Não há
+      # .docgov.config.js aqui de propósito — este repo é CÓDIGO, isento do
+      # regime de frontmatter/changelog que ele governa nos outros. O que se
+      # verifica é que a CLI falha com o código 2 (erro de setup), não que ela
+      # explode.
+      - name: CLI reports a missing config as a setup error, not a crash
+        run: |
+          set +e
+          node bin/docgov.js check
+          code=$?
+          set -e
+          [ "$code" = "2" ] || { echo "expected exit 2, got $code"; exit 1; }
