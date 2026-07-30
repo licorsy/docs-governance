@@ -87,6 +87,19 @@ writes a commented `.docgov.config.js` you then edit. No tokens involved — it 
 | `internal-links` | Every relative Markdown link resolves. Fenced code blocks are stripped first (nested fences included), so example placeholders are not flagged |
 | `changelog-retention` | At most N entries in a document's body changelog; full history lives in git |
 | `version-bump` | A modified versioned document must bump `version:`, monotonically. Additions and renames are out of scope |
+| `declared_counts` *(shadow)* | A prose count ("N files") matches a real directory listing, not another string |
+| `sum_decomposition` | A declared sum ("20 + 13 + 2 + 2 = 37") is recomputed, not string-compared |
+| `facts` *(shadow)* | An atomic fact ("5 scheduled routines") is present where it's supposed to be (`required_in`), and its stale form doesn't survive outside exempt context (`forbidden`) |
+| `version_citations` *(shadow)* | A citation like `` `path.md` v1.9 `` is checked against that file's real `version:` frontmatter |
+| `sync_destinations` | A self-contained "destination" document (e.g. a duplicated paste target) declares `covers: { id: "X.Y" }` in its own frontmatter; checked against the source's real version — see `docgov sync-status` |
+
+**Shadow rules** (`shadow: true` in config) never fail `check`/CI and never run
+under `--changed` (pre-commit) — findings print prefixed `[shadow]`. They start
+here because they are heuristic (regex over prose) and the dominant measured
+risk in this engine is false positives training people to reach for
+`--no-verify`. Promote a shadow rule to blocking only after measuring precision
+on a real corpus — see `lib/exempt.js` for the historical/self-qualifying/
+fenced-code exemption predicate every content rule runs through first.
 
 ## Configuration
 
