@@ -86,6 +86,18 @@ test('checkFile respects the exempt predicate (inside changelog block)', () => {
   });
 });
 
+test('checkFile ignores an open-ended threshold citation ("v4.0+" means "since", not "is at")', () => {
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'docs/target.md'), fm('4.7'));
+  fs.writeFileSync(path.join(dir, 'citer.md'), 'sujeito ao teto do fluxo (`docs/target.md` v4.0+).');
+
+  withCwd(dir, () => {
+    const findings = checkFile('citer.md', {});
+    assert.strictEqual(findings.length, 0);
+  });
+});
+
 test('checkFile handles a relative citation with ../', () => {
   const dir = tmpRepo();
   fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
