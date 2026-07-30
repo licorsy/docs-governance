@@ -28,7 +28,6 @@ test('checkRequired flags a file missing the expected fact', () => {
   withCwd(dir, () => {
     const findings = checkRequired(
       { id: 'rotinas-count', value: '5', required_in: [{ file: 'a.md', pattern: /5 rotinas/ }] },
-      {},
     );
     assert.strictEqual(findings.length, 1);
     assert.match(findings[0], /does not state fact "rotinas-count"/);
@@ -41,21 +40,23 @@ test('checkRequired is silent when the file states the fact', () => {
   withCwd(dir, () => {
     const findings = checkRequired(
       { id: 'rotinas-count', value: '5', required_in: [{ file: 'a.md', pattern: /5 rotinas/ }] },
-      {},
     );
     assert.strictEqual(findings.length, 0);
   });
 });
 
-test('checkRequired ignores a match that only occurs on an exempt line', () => {
+test('checkRequired counts a match even on a line that would be exempt for checkForbidden — real regression', () => {
+  // Achado real no personal-os (29/07): AGENTS.md afirma, na MESMA linha,
+  // "4 rotinas... que existiam então" (histórico) e "5 rotinas... hoje"
+  // (vigente). Isenção por linha esconderia a segunda parte se
+  // `checkRequired` respeitasse o predicado — por isso não respeita.
   const dir = tmpRepo();
-  fs.writeFileSync(path.join(dir, 'a.md'), '5 rotinas, como era à época.');
+  fs.writeFileSync(path.join(dir, 'a.md'), 'as 4 rotinas que existiam então; são 5 rotinas hoje.');
   withCwd(dir, () => {
     const findings = checkRequired(
       { id: 'rotinas-count', value: '5', required_in: [{ file: 'a.md', pattern: /5 rotinas/ }] },
-      { self_qualifying: /à época/ },
     );
-    assert.strictEqual(findings.length, 1);
+    assert.strictEqual(findings.length, 0);
   });
 });
 
