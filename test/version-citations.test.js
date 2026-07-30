@@ -98,6 +98,18 @@ test('checkFile ignores an open-ended threshold citation ("v4.0+" means "since",
   });
 });
 
+test('checkFile ignores a historical multi-version enumeration ("v1.6/v1.9/v1.17")', () => {
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'state'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'state/tasks.md'), fm('1.77'));
+  fs.writeFileSync(path.join(dir, 'citer.md'), 'fricção recorrente, ver `state/tasks.md` v1.6/v1.9/v1.17.');
+
+  withCwd(dir, () => {
+    const findings = checkFile('citer.md', {});
+    assert.strictEqual(findings.length, 0);
+  });
+});
+
 test('checkFile handles a relative citation with ../', () => {
   const dir = tmpRepo();
   fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
