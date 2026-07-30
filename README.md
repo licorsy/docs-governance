@@ -62,7 +62,7 @@ failing when there is no base to compare against.
 
 ```
 /plugin marketplace add licorsy/docs-governance
-/plugin install docs-governance@licorsy
+/plugin install docs-governance@docs-governance
 ```
 
 Ships the `/docgov-audit` command and the two read-only subagents.
