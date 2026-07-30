@@ -1,7 +1,7 @@
 {
   "name": "docs-governance",
-  "version": "1.0.0",
-  "description": "Mechanical documentation-consistency checks plus the two review subagents that handle only what a script cannot. Run the deterministic layers first; the model is the last resort, not the mechanism.",
+  "version": "1.1.0",
+  "description": "Mechanical documentation-consistency checks plus the two review subagents that handle only what a script cannot. Run the deterministic layers first; the model is the last resort, not the mechanism. v1.1 adds shadow-mode content rules (declared_counts, sum_decomposition, facts, version_citations) and sync_destinations (covers: frontmatter vs. real version:).",
   "author": {
     "name": "Licorsy",
     "url": "https://github.com/licorsy"

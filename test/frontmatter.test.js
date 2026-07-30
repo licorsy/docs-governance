@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { parseFrontmatter, parseRelated, extractVersion, compareVersions } = require('../lib/frontmatter');
+const { parseFrontmatter, parseRelated, parseCovers, extractVersion, compareVersions } = require('../lib/frontmatter');
 const rule = require('../lib/rules/frontmatter');
 
 const CFG = {
@@ -137,6 +137,16 @@ test('compareVersions handles multi-digit segments numerically', () => {
 
 test('compareVersions returns null only when a segment has no leading digit', () => {
   assert.strictEqual(compareVersions('beta', '1.0'), null);
+});
+
+test('parseCovers reads an inline object of id -> version', () => {
+  const fields = parseFrontmatter('---\ncovers: {agent: "2.36", agent-identity: "1.6"}\n---\n');
+  assert.deepStrictEqual(parseCovers(fields), { agent: '2.36', 'agent-identity': '1.6' });
+});
+
+test('parseCovers returns {} for a missing or malformed covers field', () => {
+  assert.deepStrictEqual(parseCovers(null), {});
+  assert.deepStrictEqual(parseCovers({ covers: 'not-an-object' }), {});
 });
 
 test('compareVersions truncates a suffix instead of bailing out', () => {

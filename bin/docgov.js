@@ -18,13 +18,23 @@ const { load } = require('../lib/config');
 const { walkScoped } = require('../lib/walk');
 const { parseFrontmatter } = require('../lib/frontmatter');
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 const RULES = [
   require('../lib/rules/frontmatter'),
   require('../lib/rules/internal-links'),
   require('../lib/rules/changelog-retention'),
   require('../lib/rules/version-bump'),
+  // Fase 2 (personal-os/local-notes/030): regras de conteúdo, shadow mode até
+  // precisão comprovada. Config de cada uma vem vazia (`entries: []`) por
+  // padrão — sem entradas declaradas pelo repositório, cada uma roda e não
+  // acha nada, o que é diferente de estar desabilitada.
+  require('../lib/rules/declared-counts'),
+  require('../lib/rules/sum-decomposition'),
+  require('../lib/rules/facts'),
+  require('../lib/rules/version-citations'),
+  // Fase 3: covers: no frontmatter vs. version: real da fonte.
+  require('../lib/rules/sync-destinations'),
 ];
 
 function parseArgs(argv) {
@@ -82,18 +92,27 @@ function cmdCheck(args) {
     if (ruleCfg.enabled === false) continue;
     if (only && !only.includes(rule.id)) continue;
 
+    // Regra em shadow mode nunca roda no pre-commit (`--changed`) e nunca
+    // reprova o processo (`check`/CI) — só imprime, prefixado, o que já teria
+    // achado. É a Fase 2 do plano (`personal-os/local-notes/030`): promoção a
+    // bloqueante é decisão humana, depois de medir precisão num corpus real,
+    // nunca automática por causa deste código.
+    const shadow = !!ruleCfg.shadow;
+    if (shadow && args.flags.changed) continue;
+    const tag = shadow ? '[shadow] ' : '';
+
     const ctx = { cwd, baseSha: args.flags['base-sha'] };
     let result;
     try {
       result = rule.run(ruleCfg, ctx);
     } catch (err) {
-      console.error(`\n[${rule.id}] rule crashed: ${err.message}`);
-      failed += 1;
+      console.error(`\n${tag}[${rule.id}] rule crashed: ${err.message}`);
+      if (!shadow) failed += 1;
       continue;
     }
 
     if (result.skipped) {
-      console.log(`[${rule.id}] skipped — ${result.reason}`);
+      console.log(`${tag}[${rule.id}] skipped — ${result.reason}`);
       continue;
     }
 
@@ -104,24 +123,60 @@ function cmdCheck(args) {
       // Em --changed a contagem do resumo é do repositório inteiro, não do que
       // foi filtrado; dizer "tudo ok" com um número que não corresponde ao
       // escopo relatado enganaria. Por isso o rótulo explícito.
-      console.log(staged ? `[${rule.id}] no findings in staged files` : result.okSummary);
+      console.log(tag + (staged ? `[${rule.id}] no findings in staged files` : result.okSummary));
       continue;
     }
 
-    failed += 1;
+    if (!shadow) failed += 1;
     for (const finding of findings) {
       if (result.inlineMessages) {
-        for (const m of finding.messages) console.error(m);
+        for (const m of finding.messages) console.error(tag + m);
       } else {
-        console.error('\n' + finding.file);
+        console.error('\n' + tag + finding.file);
         for (const m of finding.messages) console.error('  - ' + m);
       }
     }
-    console.error('\n' + result.failSummary(findings.length));
+    console.error('\n' + tag + result.failSummary(findings.length));
     if (ruleCfg.why) console.error(`  why this rule exists: ${ruleCfg.why}`);
   }
 
   return failed > 0 ? 1 : 0;
+}
+
+// ---------------------------------------------------------------------------
+// sync-status — relatório humano da regra `sync_destinations`. Existe como
+// comando próprio (em vez de só rodar via `check --rule sync_destinations`)
+// porque quem invoca isto (o passo 8 da Revisão Semanal do `personal-os`)
+// quer o estado de CADA destino, inclusive o que está OK — `check` só imprime
+// o que falhou.
+
+function cmdSyncStatus() {
+  const cwd = process.cwd();
+  let loaded;
+  try {
+    loaded = load(cwd);
+  } catch (err) {
+    console.error(`docgov: ${err.message}`);
+    return 2;
+  }
+
+  const { config } = loaded;
+  const cfg = (config.rules || {}).sync_destinations || {};
+  if (!(cfg.targets || []).length) {
+    console.log('sync-status: no targets configured (rules.sync_destinations.targets is empty)');
+    return 0;
+  }
+
+  const rule = require('../lib/rules/sync-destinations');
+  const result = rule.run(cfg);
+
+  let anyStale = false;
+  for (const r of result.all) {
+    console.log(r.ok ? `OK    ${r.message}` : `STALE ${r.message}`);
+    if (!r.ok) anyStale = true;
+  }
+
+  return anyStale ? 1 : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +282,27 @@ module.exports = {
     'version-bump': {
       enabled: true,
     },
+
+    // ---- Fase 2: regras de conteúdo, shadow mode até precisão comprovada ---
+    // Cada uma fica sem entradas até você declarar uma — sem entradas, a
+    // regra roda e não acha nada (dado ausente, não erro). Exemplos:
+    //
+    // declared_counts: { entries: [
+    //   { file: 'docs/index.md', pattern: /(\\d+) prompts no total/, dir: 'docs/prompts' },
+    // ] },
+    // sum_decomposition: { entries: [
+    //   { file: 'docs/index.md', pattern: /(\\d+) \\+ (\\d+) \\+ (\\d+) = (\\d+)/ },
+    // ] },
+    // facts: { scope_dirs: ${list(d.scopeDirs)}, entries: [
+    //   { id: 'slug', value: '5', required_in: [{ file: 'README.md', pattern: /5 rotinas/ }], forbidden: [/4 rotinas/] },
+    // ] },
+    // version_citations: { scope_dirs: ${list(d.scopeDirs)}, root_files: ${list(d.rootFiles)} },
+
+    // ---- Fase 3: covers: no frontmatter do destino vs. version: da fonte ---
+    // sync_destinations: {
+    //   targets: ['docs/prompts/006-project.md'],
+    //   scope_dirs: ${list(d.scopeDirs)}, root_files: ${list(d.rootFiles)},
+    // },
   },
 };
 `;
@@ -292,14 +368,19 @@ function cmdInit(args) {
 
 const USAGE = `docgov ${VERSION} — mechanical documentation-consistency checks
 
-  docgov check [--config <path>] [--changed] [--base-sha <sha>] [--rule <id,...>]
-  docgov init  [--hook] [--force]
+  docgov check       [--config <path>] [--changed] [--base-sha <sha>] [--rule <id,...>]
+  docgov init        [--hook] [--force]
+  docgov sync-status
 
-  check      run every enabled rule; exit 1 on findings, 2 on setup error
-  --changed  report only findings in staged files (for pre-commit)
-  --base-sha base commit for the version-bump rule (or BASE_SHA env var)
-  init       generate .docgov.config.js by discovering this repository's shape
-  --hook     also install .git/hooks/pre-commit
+  check       run every enabled rule; exit 1 on findings, 2 on setup error.
+              Rules with \`shadow: true\` in config never fail the process and
+              never run under --changed; findings print prefixed "[shadow]"
+  --changed   report only findings in staged files (for pre-commit)
+  --base-sha  base commit for the version-bump rule (or BASE_SHA env var)
+  init        generate .docgov.config.js by discovering this repository's shape
+  --hook      also install .git/hooks/pre-commit
+  sync-status per-target report of rules.sync_destinations (OK and STALE both
+              printed, not just failures); exit 1 if any target is stale
 `;
 
 function main() {
@@ -311,6 +392,7 @@ function main() {
 
   if (cmd === 'check') return cmdCheck(args);
   if (cmd === 'init') return cmdInit(args);
+  if (cmd === 'sync-status') return cmdSyncStatus();
 
   console.error(`docgov: unknown command "${cmd}"\n\n${USAGE}`);
   return 2;
