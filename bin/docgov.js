@@ -2,13 +2,13 @@
 
 'use strict';
 
-// docgov — verificador mecânico de consistência documental.
+// docgov — mechanical documentation-consistency checker.
 //
-// Resolve caminhos por `__dirname` (para si mesmo) e `process.cwd()` (para o
-// repositório auditado). NUNCA referencia ${CLAUDE_PLUGIN_ROOT}: essa variável
-// só existe do lado do plugin do Claude Code e não existe no CI. É essa
-// separação que faz o MESMO arquivo servir aos três consumidores — pre-commit,
-// GitHub Actions e sessão interativa.
+// Resolves paths via `__dirname` (for itself) and `process.cwd()` (for the
+// audited repository). NEVER references ${CLAUDE_PLUGIN_ROOT}: that variable
+// only exists on the Claude Code plugin side and doesn't exist in CI. That
+// separation is what lets the SAME file serve all three consumers —
+// pre-commit, GitHub Actions, and an interactive session.
 
 const fs = require('fs');
 const path = require('path');
@@ -18,22 +18,22 @@ const { load } = require('../lib/config');
 const { walkScoped } = require('../lib/walk');
 const { parseFrontmatter } = require('../lib/frontmatter');
 
-const VERSION = '1.1.3';
+const VERSION = '1.1.4';
 
 const RULES = [
   require('../lib/rules/frontmatter'),
   require('../lib/rules/internal-links'),
   require('../lib/rules/changelog-retention'),
   require('../lib/rules/version-bump'),
-  // Fase 2 (personal-os/local-notes/030): regras de conteúdo, shadow mode até
-  // precisão comprovada. Config de cada uma vem vazia (`entries: []`) por
-  // padrão — sem entradas declaradas pelo repositório, cada uma roda e não
-  // acha nada, o que é diferente de estar desabilitada.
+  // Phase 2 (personal-os/local-notes/030): content rules, shadow mode until
+  // precision is proven. Each rule's config is empty (`entries: []`) by
+  // default — with no entries declared by the repository, each one runs and
+  // finds nothing, which is different from being disabled.
   require('../lib/rules/declared-counts'),
   require('../lib/rules/sum-decomposition'),
   require('../lib/rules/facts'),
   require('../lib/rules/version-citations'),
-  // Fase 3: covers: no frontmatter vs. version: real da fonte.
+  // Phase 3: covers: in frontmatter vs. the source's real version:.
   require('../lib/rules/sync-destinations'),
 ];
 
@@ -92,11 +92,12 @@ function cmdCheck(args) {
     if (ruleCfg.enabled === false) continue;
     if (only && !only.includes(rule.id)) continue;
 
-    // Regra em shadow mode nunca roda no pre-commit (`--changed`) e nunca
-    // reprova o processo (`check`/CI) — só imprime, prefixado, o que já teria
-    // achado. É a Fase 2 do plano (`personal-os/local-notes/030`): promoção a
-    // bloqueante é decisão humana, depois de medir precisão num corpus real,
-    // nunca automática por causa deste código.
+    // A rule in shadow mode never runs under pre-commit (`--changed`) and
+    // never fails the process (`check`/CI) — it only prints, prefixed, what
+    // it would have found. This is Phase 2 of the plan
+    // (`personal-os/local-notes/030`): promotion to blocking is a human
+    // decision, made after measuring precision on a real corpus, never
+    // automatic because of this code.
     const shadow = !!ruleCfg.shadow;
     if (shadow && args.flags.changed) continue;
     const tag = shadow ? '[shadow] ' : '';
@@ -120,9 +121,10 @@ function cmdCheck(args) {
     if (staged) findings = findings.filter((f) => staged.has(f.file));
 
     if (findings.length === 0) {
-      // Em --changed a contagem do resumo é do repositório inteiro, não do que
-      // foi filtrado; dizer "tudo ok" com um número que não corresponde ao
-      // escopo relatado enganaria. Por isso o rótulo explícito.
+      // Under --changed the summary count is for the whole repository, not
+      // what was filtered; saying "all good" with a number that doesn't
+      // match the reported scope would be misleading. Hence the explicit
+      // label.
       console.log(tag + (staged ? `[${rule.id}] no findings in staged files` : result.okSummary));
       continue;
     }
@@ -144,11 +146,11 @@ function cmdCheck(args) {
 }
 
 // ---------------------------------------------------------------------------
-// sync-status — relatório humano da regra `sync_destinations`. Existe como
-// comando próprio (em vez de só rodar via `check --rule sync_destinations`)
-// porque quem invoca isto (o passo 8 da Revisão Semanal do `personal-os`)
-// quer o estado de CADA destino, inclusive o que está OK — `check` só imprime
-// o que falhou.
+// sync-status — human-readable report for the `sync_destinations` rule. It
+// exists as its own command (instead of just running via `check --rule
+// sync_destinations`) because whoever invokes this (step 8 of `personal-os`'s
+// Weekly Review) wants the state of EVERY target, including the ones that are
+// OK — `check` only prints what failed.
 
 function cmdSyncStatus() {
   const cwd = process.cwd();
@@ -180,8 +182,8 @@ function cmdSyncStatus() {
 }
 
 // ---------------------------------------------------------------------------
-// init — descobre a forma do repositório em vez de perguntar. Zero token: é
-// `fs` e `git log`.
+// init — discovers the shape of the repository instead of asking. Zero
+// tokens: it's just `fs` and `git log`.
 
 function discover(cwd) {
   const skip = new Set(['.git', 'node_modules', '.vscode', '.github', 'local-notes', 'dist', 'build']);
@@ -196,13 +198,13 @@ function discover(cwd) {
     const withFm = files.filter((f) => parseFrontmatter(fs.readFileSync(f, 'utf8'))).length;
     density.push({ dir: d, files: files.length, withFm });
   }
-  // Um diretório entra no escopo quando a maioria dos seus .md já carrega
-  // frontmatter — ou seja, quando a convenção já vale ali de fato.
+  // A directory enters scope when most of its .md files already carry
+  // frontmatter — i.e. when the convention already holds there in practice.
   const scopeDirs = density.filter((d) => d.withFm > d.files / 2).map((d) => d.dir);
 
   const rootFiles = ['README.md', 'AGENTS.md', 'CLAUDE.md'].filter((f) => fs.existsSync(path.join(cwd, f)));
 
-  // Marker de changelog realmente em uso, medido em vez de suposto.
+  // Changelog marker actually in use, measured rather than assumed.
   const markers = ['Changelog:', 'Changelog of this document:'];
   const counts = markers.map((m) => {
     let n = 0;
@@ -214,8 +216,9 @@ function discover(cwd) {
     return { marker: m, n };
   }).sort((a, b) => b.n - a.n);
 
-  // Candidatos a histórico congelado: diretórios cujo conteúdo não é tocado há
-  // muitos commits. Proposta, não decisão — init comenta, não ativa.
+  // Candidates for frozen history: directories whose content hasn't been
+  // touched in many commits. A suggestion, not a decision — init comments it
+  // out, it doesn't enable it.
   let stale = [];
   try {
     const recent = execFileSync('git', ['log', '-n', '80', '--name-only', '--pretty=format:'], { encoding: 'utf8' })
@@ -228,7 +231,7 @@ function discover(cwd) {
       return subs.filter((s) => !recent.some((f) => f.startsWith(s + '/')));
     });
     void touched;
-  } catch { /* sem git: sem proposta de histórico */ }
+  } catch { /* no git: no history suggestion */ }
 
   return { scopeDirs, rootFiles, marker: counts[0] && counts[0].n > 0 ? counts[0].marker : 'Changelog:', stale };
 }
@@ -237,14 +240,16 @@ function renderConfig(d) {
   const list = (a) => `[${a.map((x) => `'${x}'`).join(', ')}]`;
   return `'use strict';
 
-// Gerado por \`docgov init\`. Ajuste e comite.
+// Generated by \`docgov init\`. Adjust and commit.
 //
-// Esta config declara DADOS, não lógica. Se você precisar de uma checagem que
-// não existe, ela vai para o motor (licorsy/docs-governance), não para cá —
-// senão o motor é forkado por config e a duplicação volta pela porta dos fundos.
-//
-// Toda regra aceita um campo \`why\`, impresso quando ela falha. Preencha com o
-// defeito REAL que motivou a regra. Regra sem defeito real não deveria existir.
+// This config declares DATA, never logic. If you need a check that doesn't
+// exist, it belongs in the engine (licorsy/docs-governance), not here —
+// otherwise the engine ends up forked-by-config and duplication sneaks back
+// in through the side door.
+
+// Every rule accepts a \`why\` field, printed when it fails. Fill it with the
+// REAL defect that motivated the rule. A rule with no real defect shouldn't
+// exist.
 
 module.exports = {
   engine: '^1',
@@ -253,19 +258,20 @@ module.exports = {
     frontmatter: {
       scope_dirs: ${list(d.scopeDirs)},
       root_files: ${list(d.rootFiles)},
-      exclude_prefixes: [],${d.stale.length ? `\n      // candidatos a histórico congelado detectados: ${d.stale.join(', ')}` : ''}
-      // ids destes contam para resolver \`related:\`, mas os arquivos não são cobrados
+      exclude_prefixes: [],${d.stale.length ? `\n      // detected candidates for frozen history: ${d.stale.join(', ')}` : ''}
+      // ids from these count toward resolving \`related:\`, but the files
+      // themselves aren't checked
       id_only_sources: [],
       required: ['title', 'doc_type', 'description', 'status', 'version', 'created', 'updated', 'language'],
       status_enum: ['draft', 'active', 'deprecated', 'archived'],
-      doc_type_enum: null, // null = não cobra o enum; liste os tipos quando quiser cobrar
+      doc_type_enum: null, // null = don't enforce the enum
       date_fields: ['created', 'updated'],
     },
 
     'internal-links': {
-      // poda por NOME de diretório, em qualquer profundidade
+      // prunes by directory NAME, at any depth
       exclude_dir_names: ['.git', 'node_modules', '.vscode', 'local-notes'],
-      // links que nunca devem ser cobrados (ex.: alvo gitignored)
+      // links that should never be checked (e.g. gitignored target)
       skip_link_patterns: [],
     },
 
@@ -283,22 +289,22 @@ module.exports = {
       enabled: true,
     },
 
-    // ---- Fase 2: regras de conteúdo, shadow mode até precisão comprovada ---
-    // Cada uma fica sem entradas até você declarar uma — sem entradas, a
-    // regra roda e não acha nada (dado ausente, não erro). Exemplos:
+    // ---- Phase 2: content rules, shadow mode until precision is proven ----
+    // Each one has no entries until you declare one — with no entries, the
+    // rule runs and finds nothing (missing data, not an error). Examples:
     //
     // declared_counts: { entries: [
-    //   { file: 'docs/index.md', pattern: /(\\d+) prompts no total/, dir: 'docs/prompts' },
+    //   { file: 'docs/index.md', pattern: /(\\d+) prompts total/, dir: 'docs/prompts' },
     // ] },
     // sum_decomposition: { entries: [
     //   { file: 'docs/index.md', pattern: /(\\d+) \\+ (\\d+) \\+ (\\d+) = (\\d+)/ },
     // ] },
     // facts: { scope_dirs: ${list(d.scopeDirs)}, entries: [
-    //   { id: 'slug', value: '5', required_in: [{ file: 'README.md', pattern: /5 rotinas/ }], forbidden: [/4 rotinas/] },
+    //   { id: 'slug', value: '5', required_in: [{ file: 'README.md', pattern: /5 routines/ }], forbidden: [/4 routines/] },
     // ] },
     // version_citations: { scope_dirs: ${list(d.scopeDirs)}, root_files: ${list(d.rootFiles)} },
 
-    // ---- Fase 3: covers: no frontmatter do destino vs. version: da fonte ---
+    // ---- Phase 3: covers: in the destination's frontmatter vs. the source's version: ----
     // sync_destinations: {
     //   targets: ['docs/prompts/006-project.md'],
     //   scope_dirs: ${list(d.scopeDirs)}, root_files: ${list(d.rootFiles)},
@@ -309,9 +315,10 @@ module.exports = {
 }
 
 const PRE_COMMIT = `#!/bin/sh
-# instalado por \`docgov init --hook\`
-# Falso positivo aqui é pior que falso negativo: ensina a usar --no-verify.
-# Se este hook acusar algo errado, CONSERTE A REGRA ou APAGUE A REGRA.
+# installed by \`docgov init --hook\`
+# A false positive here is worse than a false negative: it teaches people to
+# use --no-verify. If this hook flags something wrong, FIX THE RULE or REMOVE
+# THE RULE.
 exec node "$DOCGOV_BIN" check --changed
 `;
 
@@ -324,7 +331,7 @@ function installHook(cwd) {
   const hookPath = path.join(hookDir, 'pre-commit');
   const bin = path.join(__dirname, 'docgov.js');
   fs.writeFileSync(hookPath, PRE_COMMIT.replace('$DOCGOV_BIN', bin.split(path.sep).join('/')), 'utf8');
-  try { fs.chmodSync(hookPath, 0o755); } catch { /* Windows: sem bit de execução */ }
+  try { fs.chmodSync(hookPath, 0o755); } catch { /* Windows: no execute bit */ }
   console.log(`installed .git/hooks/pre-commit -> ${bin}`);
   return true;
 }
@@ -334,10 +341,10 @@ function cmdInit(args) {
   const target = path.join(cwd, '.docgov.config.js');
 
   if (fs.existsSync(target) && !args.flags.force) {
-    // Config já existe: `--hook` sozinho ainda é um pedido legítimo — instalar
-    // o hook num repositório já configurado é o caso comum, e forçar --force
-    // para isso significaria sobrescrever uma config escrita à mão só para
-    // ganhar um hook.
+    // Config already exists: `--hook` alone is still a legitimate request —
+    // installing the hook in an already-configured repository is the common
+    // case, and requiring --force for that would mean overwriting a
+    // hand-written config just to get a hook.
     if (args.flags.hook) {
       console.log('.docgov.config.js already exists — keeping it');
       installHook(cwd);
