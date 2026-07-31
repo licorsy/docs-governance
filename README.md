@@ -1,5 +1,7 @@
 # docs-governance
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/licorsy/docs-governance/badge)](https://securityscorecards.dev/viewer/?uri=github.com/licorsy/docs-governance)
+
 Mechanical documentation-consistency checks for Markdown repositories, plus the
 two review subagents that handle only what a script structurally cannot.
 
