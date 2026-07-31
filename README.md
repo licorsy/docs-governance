@@ -47,16 +47,43 @@ that defect class never costs a token again.
 
 ### As a CI check
 
+A minimal workflow wrapping this action:
+
 ```yaml
-- uses: actions/checkout@v4
-  with: { fetch-depth: 0 }        # the version-bump rule needs history
-- uses: licorsy/docs-governance/action@v1
-  with:
-    base-sha: ${{ github.event.pull_request.base.sha }}
+name: Docs governance
+
+on:
+  pull_request:
+    branches: [main]        # restrict to your repo's promotion branch(es) —
+                             # e.g. [hom, main] under a taxonomy like git-governance's
+    paths:
+      - "**/*.md"
+      - ".docgov.config.js"
+      - ".github/workflows/docs-governance.yml"
+  workflow_dispatch: {}
+
+jobs:
+  docgov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }        # the version-bump rule needs history
+      - uses: licorsy/docs-governance/action@v1
+        with:
+          base-sha: ${{ github.event.pull_request.base.sha }}
 ```
 
-Leave `base-sha` empty on `push` — the version-bump rule abstains rather than
-failing when there is no base to compare against.
+Scope `pull_request.branches` to wherever this repo already does remote CI —
+usually its promotion point(s), not every branch. This action checks the
+*whole* repository, not just changed files (pair it with `docgov check
+--changed` in `pre-commit` for the changed-files-only, zero-token layer — see
+"The cost ladder" below), so there's rarely a reason to also run it on every
+`push`: a `pull_request` at the branches that matter is normally enough, and
+it avoids firing on every merge into a fast-moving, frequently-merged branch.
+
+If you do add a `push:` trigger anyway, leave `base-sha` empty on it — the
+version-bump rule abstains rather than failing when there is no base to
+compare against.
 
 ### As a Claude Code plugin
 
