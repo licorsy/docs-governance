@@ -55,7 +55,7 @@ name: Docs governance
 on:
   pull_request:
     branches: [main]        # restrict to your repo's promotion branch(es) —
-                             # e.g. [hom, main] under a taxonomy like git-governance's
+                             # e.g. [staging, main] under a taxonomy like git-governance's
     paths:
       - "**/*.md"
       - ".docgov.config.js"
