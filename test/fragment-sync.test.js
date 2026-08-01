@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { checkFragment, run } = require('../lib/rules/fragment-sync');
+const { checkFragment, run, checkAnchor } = require('../lib/rules/fragment-sync');
 
 function tmpRepo() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'docgov-fragment-sync-'));
@@ -139,6 +139,108 @@ test('run: forward-slash destination path in config is normalized to the native 
     // Same assertion shape as test/walk.test.js's toNative tests: compare
     // against a path.sep-joined literal so this stays meaningful on any OS.
     assert.strictEqual(summary.findings[0].file, ['sub', 'dest.md'].join(path.sep));
+  });
+});
+
+test('checkAnchor: absent anchor is not a finding — the common case stays free', () => {
+  assert.strictEqual(checkAnchor({ id: 'x', source: 'a.md' }), null);
+});
+
+test('checkAnchor: resolving anchor produces no finding', () => {
+  const dir = tmpRepo();
+  fs.writeFileSync(path.join(dir, 'manual.md'), '# Manual\n\n## Step 10\n\nThe rule.\n');
+  withCwd(dir, () => {
+    assert.strictEqual(
+      checkAnchor({ id: 'x', anchor: { file: 'manual.md', text: '## Step 10' } }),
+      null,
+    );
+  });
+});
+
+test('checkAnchor: anchor text absent from the anchor file is a finding attributed to that file', () => {
+  const dir = tmpRepo();
+  fs.writeFileSync(path.join(dir, 'manual.md'), '# Manual\n\n## Step 11\n\nThe rule, renumbered.\n');
+  withCwd(dir, () => {
+    const finding = checkAnchor({ id: 'always-on', anchor: { file: 'manual.md', text: '## Step 10' } });
+    assert.strictEqual(finding.ok, false);
+    assert.strictEqual(finding.file, 'manual.md');
+    assert.match(finding.message, /anchor "## Step 10" no longer occurs here/);
+    assert.match(finding.message, /fragment "always-on"/);
+  });
+});
+
+test('checkAnchor: missing anchor file is a distinct finding from missing anchor text', () => {
+  const dir = tmpRepo();
+  withCwd(dir, () => {
+    const finding = checkAnchor({ id: 'x', anchor: { file: 'gone.md', text: '## Step 10' } });
+    assert.strictEqual(finding.file, 'gone.md');
+    assert.match(finding.message, /anchor file does not exist/);
+    assert.doesNotMatch(finding.message, /no longer occurs here/);
+  });
+});
+
+test('checkAnchor: a half-declared anchor is a config error, not a silent pass', () => {
+  assert.match(checkAnchor({ id: 'x', anchor: { file: 'a.md' } }).message, /needs both `file` and `text`/);
+  assert.match(checkAnchor({ id: 'x', anchor: { text: '## Step 10' } }).message, /needs both `file` and `text`/);
+});
+
+// The whole reason the anchor exists: byte-identical copies say nothing about
+// whether the heading they quote still exists.
+test('checkFragment: blocks perfectly in sync STILL fail when the anchor has moved', () => {
+  const dir = tmpRepo();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), `${block('always-on', 'See Step 10.')}\n`);
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), `${block('always-on', 'See Step 10.')}\n`);
+  fs.writeFileSync(path.join(dir, 'manual.md'), '## Step 11\n\nRenumbered.\n');
+  withCwd(dir, () => {
+    const results = checkFragment({
+      id: 'always-on',
+      source: 'CLAUDE.md',
+      destinations: ['AGENTS.md'],
+      anchor: { file: 'manual.md', text: '## Step 10' },
+    });
+    const findings = results.filter((r) => !r.ok);
+    assert.strictEqual(findings.length, 1);
+    assert.strictEqual(findings[0].file, 'manual.md');
+    assert.match(findings[0].message, /anchor "## Step 10" no longer occurs/);
+    // and the destination comparison still passed on its own
+    assert.ok(results.some((r) => r.ok && r.file === 'AGENTS.md'));
+  });
+});
+
+test('checkFragment: a broken anchor and a diverged destination are reported as two findings, not one', () => {
+  const dir = tmpRepo();
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), `${block('always-on', 'Canonical.')}\n`);
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), `${block('always-on', 'Diverged.')}\n`);
+  fs.writeFileSync(path.join(dir, 'manual.md'), '## Step 11\n');
+  withCwd(dir, () => {
+    const findings = checkFragment({
+      id: 'always-on',
+      source: 'CLAUDE.md',
+      destinations: ['AGENTS.md'],
+      anchor: { file: 'manual.md', text: '## Step 10' },
+    }).filter((r) => !r.ok);
+    assert.strictEqual(findings.length, 2);
+    assert.deepStrictEqual(findings.map((f) => f.file).sort(), ['AGENTS.md', 'manual.md']);
+  });
+});
+
+test('run: forward-slash anchor path is normalized to the native separator in finding.file', () => {
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), `${block('always-on', 'Same.')}\n`);
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), `${block('always-on', 'Same.')}\n`);
+  fs.writeFileSync(path.join(dir, 'docs', 'manual.md'), '## Step 11\n');
+  withCwd(dir, () => {
+    const summary = run({
+      fragments: [{
+        id: 'always-on',
+        source: 'CLAUDE.md',
+        destinations: ['AGENTS.md'],
+        anchor: { file: 'docs/manual.md', text: '## Step 10' },
+      }],
+    });
+    assert.strictEqual(summary.findings.length, 1);
+    assert.strictEqual(summary.findings[0].file, ['docs', 'manual.md'].join(path.sep));
   });
 });
 

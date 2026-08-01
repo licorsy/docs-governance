@@ -22,14 +22,26 @@ jobs:
       - name: Run engine tests
         run: node --test
 
-      # Dogfooding: the engine runs against this very repository. There is no
-      # .docgov.config.js here on purpose — this repo is CODE, exempt from the
-      # frontmatter/changelog regime it governs elsewhere. What's verified is
-      # that the CLI fails with exit code 2 (setup error), not that it crashes.
+      # Dogfooding: the engine runs against this very repository and must pass.
+      # This repo used to carry no .docgov.config.js on the reasoning that it
+      # is CODE and therefore exempt from the regime it governs elsewhere. That
+      # exemption no longer holds: the repo has governed Markdown of its own
+      # (CLAUDE.md, agents/, commands/), and its sibling plugin git-governance
+      # already dogfoods the same way. A rule the engine cannot survive on its
+      # own documents has no business shipping to consumers.
+      - name: Engine passes its own checks
+        run: node bin/docgov.js check
+
+      # The missing-config behaviour still needs coverage, but it is a property
+      # of the CLI, not of this repository's layout — asserting it by leaving
+      # the repo unconfigured coupled an engine test to a governance decision,
+      # which is exactly what broke when the config was added. An empty temp
+      # directory tests the same thing without that coupling.
       - name: CLI reports a missing config as a setup error, not a crash
         run: |
+          workdir="$(mktemp -d)"
           set +e
-          node bin/docgov.js check
+          (cd "$workdir" && node "$GITHUB_WORKSPACE/bin/docgov.js" check)
           code=$?
           set -e
           [ "$code" = "2" ] || { echo "expected exit 2, got $code"; exit 1; }
