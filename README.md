@@ -44,7 +44,9 @@ one cannot settle. **Layers 1–3 cost no tokens at all.**
 
 The ratchet that makes this cheaper over time: **any finding from layer 4 that
 turns out to be mechanically detectable becomes a rule in layer 1.** Moved down,
-that defect class never costs a token again.
+that defect class never costs a token again. This is exactly what happened for
+fragment duplication, dead inline-code citations, and layer/step-number drift —
+the three newest rules in the table above.
 
 This is the canonical numbering — `/docgov-audit` (the command that drives an
 audit session) names its own steps against these same layer numbers, starting
@@ -130,6 +132,9 @@ writes a commented `.docgov.config.js` you then edit. No tokens involved — it 
 | `facts` *(shadow)* | An atomic fact ("5 scheduled routines") is present where it's supposed to be (`required_in`), and its stale form doesn't survive outside exempt context (`forbidden`) |
 | `version_citations` *(shadow)* | A citation like `` `path.md` v1.9 `` is checked against that file's real `version:` frontmatter |
 | `sync_destinations` | A self-contained "destination" document (e.g. a duplicated paste target) declares `covers: { id: "X.Y" }` in its own frontmatter; checked against the source's real version — see `docgov sync-status` |
+| `fragment_sync` | A canonical block, delimited by `<!-- fragment:id:start/end -->` markers in a source file, must exact-byte-match the same-id block in one or more destination files |
+| `dead_citations` *(shadow)* | An inline-code citation (`` `prompt-042` ``, `` `012-slug.md` ``) resolves to a real file — fills the gap `internal-links` leaves for citations that aren't real Markdown link syntax |
+| `numbered_reference_consistency` *(shadow)* | A `layer N`/`step N` style citation resolves to a number in a config-declared canonical sequence |
 
 **Shadow rules** (`shadow: true` by default in `lib/config.js` — `docgov init`
 doesn't write the field explicitly, so don't expect to find it in a generated
@@ -165,6 +170,67 @@ Scope is per rule, not global. That is deliberate: link checking wants the whole
 tree pruned by directory name at any depth, while frontmatter validation wants
 an explicit list of directories. Collapsing them into one scope would have
 broken parity with the checks this engine replaced.
+
+## Adopting the new rules
+
+Three rules exist specifically to replace a class of LLM-auditor finding
+with a mechanical one (see "The ratchet" above). Each is inert until a
+repository declares what to check.
+
+**`fragment_sync`** — for prose duplicated verbatim across files with
+nothing keeping the copies in sync. Example: `licorsy/git-governance`'s
+`README.md:31` and `CLAUDE.md:13` both currently contain the byte-identical
+line `feat/* (also fix/, refactor/, docs/, chore/, hotfix/)  ->  develop
+->  staging  ->  main`, with no mechanism enforcing that. Wrapping that
+line in `<!-- fragment:branch-flow:start/end -->` markers in both files and
+configuring:
+
+```js
+fragment_sync: {
+  fragments: [
+    { id: 'branch-flow', source: 'README.md', destinations: ['CLAUDE.md'] },
+  ],
+},
+```
+
+turns the next silent drift between those two files into a `docgov check`
+failure instead of another LLM-audit finding.
+
+**`numbered_reference_consistency`** — for a canonical ordered sequence
+("Layer N") cited by number in prose. This repository's own README cost
+ladder above and `commands/docgov-audit.md`'s `## Layer 2`–`## Layer 5`
+headings are exactly the corpus that had to be hand-renumbered when
+`ctxlint` was inserted as a new layer. Configuring:
+
+```js
+numbered_reference_consistency: {
+  root_files: ['README.md', 'commands/docgov-audit.md'],
+  sequences: [{ id: 'layer', word: 'layer', valid: [1, 2, 3, 4, 5] }],
+},
+```
+
+would not have caught that exact historical bug (both the old and new
+layer numbers stayed in-range throughout the rename), but it does catch
+the more common failure mode of the same class of edit — one file getting
+bumped to "Layer 6" a step ahead of the other, before the canonical
+`valid` list itself is updated. For the stronger guarantee (the same
+conceptual step must carry the same number in every file), the existing
+`facts` rule's `required_in` can already pin an exact heading string to an
+exact file — no new rule needed for that case.
+
+**`dead_citations`** — for inline-code citations (`` `prompt-042` ``,
+`` `012-slug.md` ``) that `internal-links` can't see because they aren't
+real Markdown link syntax:
+
+```js
+dead_citations: {
+  scope_dirs: ['docs'],
+  patterns: [
+    { id: 'md-files', kind: 'filename' },
+    { id: 'prompts', kind: 'prefix-id', prefix: 'prompt', dir: 'docs/prompts', digits: 3 },
+  ],
+},
+```
 
 ## Development
 

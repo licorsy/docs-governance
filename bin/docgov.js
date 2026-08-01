@@ -18,7 +18,7 @@ const { load } = require('../lib/config');
 const { walkScoped } = require('../lib/walk');
 const { parseFrontmatter } = require('../lib/frontmatter');
 
-const VERSION = '1.1.4';
+const VERSION = '1.2.0';
 
 const RULES = [
   require('../lib/rules/frontmatter'),
@@ -37,6 +37,13 @@ const RULES = [
   require('../lib/rules/version-citations'),
   // Phase 3: covers: in frontmatter vs. the source's real version:.
   require('../lib/rules/sync-destinations'),
+  // Phase 4: promotion of layer-4 (LLM-audit) findings that turned out to be
+  // mechanically detectable — see README's "The ratchet". Each one is inert
+  // until configured (empty `fragments`/`patterns`/`sequences`), same
+  // "missing data, not an error" convention as every rule above it.
+  require('../lib/rules/fragment-sync'),
+  require('../lib/rules/dead-citations'),
+  require('../lib/rules/numbered-reference-consistency'),
 ];
 
 function parseArgs(argv) {
@@ -316,6 +323,19 @@ module.exports = {
     //   targets: ['docs/prompts/006-project.md'],
     //   scope_dirs: ${list(d.scopeDirs)}, root_files: ${list(d.rootFiles)},
     // },
+
+    // ---- Phase 4: fragment/citation/numbered-reference rules promoted from
+    // repeated layer-4 (LLM-audit) findings — see README's "The ratchet" ----
+    // fragment_sync: { fragments: [
+    //   { id: 'branch-flow', source: 'README.md', destinations: ['CLAUDE.md'] },
+    // ] },
+    // dead_citations: { scope_dirs: ${list(d.scopeDirs)}, patterns: [
+    //   { id: 'md-files', kind: 'filename' },
+    //   { id: 'prompts', kind: 'prefix-id', prefix: 'prompt', dir: 'docs/prompts', digits: 3 },
+    // ] },
+    // numbered_reference_consistency: { scope_dirs: ${list(d.scopeDirs)}, sequences: [
+    //   { id: 'layer', word: 'layer', valid: [1, 2, 3, 4, 5] },
+    // ] },
   },
 };
 `;

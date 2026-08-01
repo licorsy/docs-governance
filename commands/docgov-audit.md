@@ -64,7 +64,10 @@ this step is how an audit loop fails to converge.
 **Every finding from layer 4 that turns out to be mechanically detectable must
 become a rule in layer 1.** Report it to the user as such and propose the
 config entry. A defect class that stays in the model layer costs tokens forever;
-moved down, it costs nothing again, permanently.
+moved down, it costs nothing again, permanently. `fragment_sync`,
+`dead_citations`, and `numbered_reference_consistency` are three such
+promotions already in the engine — check whether a new finding fits one of
+them before proposing a new rule.
 
 Never edit documents from inside layers 4–5 — the auditor is read-only by tool
 grant (`Read, Grep, Glob` only); the verifier is read-only by instruction and
