@@ -1,0 +1,45 @@
+# Local validation — the primary governance gate for this repo and for any
+# repo this plugin is scaffolded into. See CLAUDE.md for the full policy.
+#
+# Install once per clone:
+#   pre-commit install
+#   pre-commit install --hook-type commit-msg
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args:
+          - feat
+          - fix
+          - docs
+          - refactor
+          - chore
+          - test
+          - perf
+          - build
+          - ci
+
+  # If this repo already has a companion plugin's raw hook installed at
+  # .git/hooks/pre-commit (e.g. `docgov init --hook`), register it here
+  # BEFORE running `pre-commit install`, or that hook is silently replaced.
+  # See CLAUDE.md ("Companion plugins"). Uncomment and adjust the entry:
+  #
+  # - repo: local
+  #   hooks:
+  #     - id: docgov-changed
+  #       name: docgov check --changed
+  #       entry: node <path-to-docgov>/bin/docgov.js check --changed
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
