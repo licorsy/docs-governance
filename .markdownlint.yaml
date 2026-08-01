@@ -1,0 +1,5 @@
+default: true
+single-title: false
+line-length: false
+table-column-style: false
+first-line-heading: false

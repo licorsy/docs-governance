@@ -1,0 +1,62 @@
+# Minimal remote validation, kept deliberately off `develop` to save Actions
+# quota. See CLAUDE.md ("Remote validation layer") for the rationale: local
+# pre-commit is the primary gate everywhere, including develop; this workflow
+# only runs at the two deliberate, infrequent promotion points (staging, main) or
+# on demand.
+name: PR checks
+
+on:
+  pull_request:
+    branches: [staging, main]
+  workflow_dispatch: {}
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run file-content hooks
+        run: pre-commit run --all-files
+
+      - name: Validate commit messages (Conventional Commits)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # commit-msg hooks don't run under `pre-commit run --all-files`,
+          # so each commit subject in the PR range is checked explicitly.
+          #
+          # --no-merges is load-bearing on promotion PRs. GitHub generates
+          # "Merge pull request #N from owner/branch" itself, and that string
+          # can never be a Conventional Commit, so linting it fails by
+          # construction. Every develop -> staging PR contains at least one,
+          # because merging into develop is what creates them - which made this
+          # check block the exact promotions it is meant to guard. The local
+          # commit-msg hook never saw the problem: it runs on commits a human
+          # writes, and nobody writes a merge commit by hand.
+          git log --no-merges --format=%s "${BASE_REF}..${HEAD_REF}" | while IFS= read -r subject; do
+            echo "$subject" > /tmp/commit-msg
+            pre-commit run conventional-pre-commit --hook-stage commit-msg --commit-msg-filename /tmp/commit-msg || exit 1
+          done
+
+      # Optional: only runs if this repo also uses the docs-governance plugin
+      # (github.com/licorsy/docs-governance) and has configured it. This
+      # workflow is the single place that decides *when* CI runs across
+      # plugins — docs-governance never brings its own trigger, it's just
+      # invoked here as a step. See CLAUDE.md ("Companion plugins").
+      - name: Check documentation consistency (docs-governance)
+        if: github.event_name == 'pull_request' && hashFiles('.docgov.config.js') != '' && hashFiles('.github/workflows/docs-governance.yml') == ''
+        uses: licorsy/docs-governance/action@v1
+        with:
+          base-sha: ${{ github.event.pull_request.base.sha }}
