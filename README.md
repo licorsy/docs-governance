@@ -132,7 +132,7 @@ writes a commented `.docgov.config.js` you then edit. No tokens involved — it 
 | `facts` *(shadow)* | An atomic fact ("5 scheduled routines") is present where it's supposed to be (`required_in`), and its stale form doesn't survive outside exempt context (`forbidden`) |
 | `version_citations` *(shadow)* | A citation like `` `path.md` v1.9 `` is checked against that file's real `version:` frontmatter |
 | `sync_destinations` | A self-contained "destination" document (e.g. a duplicated paste target) declares `covers: { id: "X.Y" }` in its own frontmatter; checked against the source's real version — see `docgov sync-status` |
-| `fragment_sync` | A canonical block, delimited by `<!-- fragment:id:start/end -->` markers in a source file, must exact-byte-match the same-id block in one or more destination files |
+| `fragment_sync` | A canonical block, delimited by `<!-- fragment:id:start/end -->` markers in a source file, must exact-byte-match the same-id block in one or more destination files; an optional `anchor` also asserts that the heading the block restates still exists |
 | `dead_citations` *(shadow)* | An inline-code citation (`` `prompt-042` ``, `` `012-slug.md` ``) resolves to a real file — fills the gap `internal-links` leaves for citations that aren't real Markdown link syntax |
 | `numbered_reference_consistency` *(shadow)* | A `layer N`/`step N` style citation resolves to a number in a config-declared canonical sequence |
 
@@ -206,6 +206,35 @@ is caught by a full `docgov check` (CI, layer 2) but **not** by `docgov
 check --changed` (pre-commit, layer 1) unless that destination is also
 staged in the same commit — worth knowing before relying on pre-commit
 alone to catch fragment drift.
+
+A fragment may also declare an optional **`anchor`**, when the synced block is a
+*restatement* of a rule whose full text lives elsewhere under a specific
+heading:
+
+```js
+fragment_sync: {
+  fragments: [
+    {
+      id: 'always-on-rule',
+      source: 'CLAUDE.md',
+      destinations: ['AGENTS.md'],
+      anchor: { file: 'docs/manuals/operation-manual.md', text: '## Step 10' },
+    },
+  ],
+},
+```
+
+Byte-matching the copies against each other says nothing about whether the thing
+they quote still exists: renumber `## Step 10` in the manual and every copy stays
+perfectly in sync while all of them now cite a heading that is gone. The anchor
+is checked independently of the destination comparison, so a fragment that is
+both diverged *and* citing a dead heading reports two findings rather than
+hiding one behind the other.
+
+The anchor is declared in config rather than parsed out of the marker comment,
+because this config declares data — reading `source=`/`anchor=` attributes off
+the markers would put a second, undocumented schema in the markup and make the
+engine parse it.
 
 **`numbered_reference_consistency`** — for a canonical ordered sequence
 ("Layer N") cited by number in prose. This repository's own README cost
