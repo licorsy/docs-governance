@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "git-governance@git-governance": true,
+    "docs-governance@docs-governance": true
+  }
+}
