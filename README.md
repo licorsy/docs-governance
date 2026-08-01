@@ -180,8 +180,7 @@ repository declares what to check.
 **`fragment_sync`** — for prose duplicated verbatim across files with
 nothing keeping the copies in sync. Example: `licorsy/git-governance`'s
 `README.md:31` and `CLAUDE.md:13` both currently contain the byte-identical
-line `feat/* (also fix/, refactor/, docs/, chore/, hotfix/)  ->  develop
-->  staging  ->  main`, with no mechanism enforcing that. Wrapping that
+line `feat/* (also fix/, refactor/, docs/, chore/, hotfix/)  ->  develop  ->  staging  ->  main`, with no mechanism enforcing that. Wrapping that
 line in `<!-- fragment:branch-flow:start/end -->` markers in both files and
 configuring:
 
