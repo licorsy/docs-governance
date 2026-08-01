@@ -34,7 +34,7 @@ module.exports = {
       // README.md stays out: it is the rendered repository landing page, and
       // GitHub renders frontmatter there as a visible table.
       scope_dirs: ['agents', 'commands'],
-      root_files: ['CLAUDE.md'],
+      root_files: ['AGENTS.md', 'CLAUDE.md'],
       exclude_prefixes: [],
       id_only_sources: [],
       required: ['description'],
@@ -58,7 +58,7 @@ module.exports = {
 
     'changelog-retention': {
       scope_dirs: ['agents', 'commands'],
-      root_files: ['CLAUDE.md'],
+      root_files: ['AGENTS.md', 'CLAUDE.md'],
       exclude_prefixes: [],
       exclude_files: [],
       marker: 'Changelog:',
@@ -83,19 +83,19 @@ module.exports = {
       // drift rather than CI at promotion time.
       shadow: false,
       scope_dirs: ['agents', 'commands'],
-      root_files: ['CLAUDE.md', 'README.md'],
+      root_files: ['AGENTS.md', 'CLAUDE.md', 'README.md'],
       entries: [
         {
           id: 'docs-governance-guard-clauses',
           value: "github.event_name == 'pull_request' && hashFiles('.docgov.config.js') != '' && hashFiles('.github/workflows/docs-governance.yml') == ''",
           why: 'this repository shipped a ONE-clause guard while its own CLAUDE.md '
-            + 'asserted three — the engine failing the check it sells. '
+            + 'asserted three (now AGENTS.md) — the engine failing the check it sells. '
             + 'git-governance pins the same fact and stayed correct; this repo '
             + 'had no facts entry at all, which is the whole reason the drift '
             + 'survived here and nowhere else',
           required_in: [
             {
-              file: 'CLAUDE.md',
+              file: 'AGENTS.md',
               pattern: /all three of[\s\S]*?hashFiles\('\.github\/workflows\/docs-governance\.yml'\) == ''/,
             },
             {
