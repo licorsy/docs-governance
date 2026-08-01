@@ -171,6 +171,36 @@ test('exemption - historical path: dead citation in a file under historical_path
   });
 });
 
+test('config validation: an unrecognized pattern kind throws instead of silently finding nothing', () => {
+  const dir = tmpRepo();
+  fs.writeFileSync(path.join(dir, 'citer.md'), 'ver `docs/real.md` para detalhes.');
+
+  withCwd(dir, () => {
+    assert.throws(
+      () => run(baseCfg({ patterns: [{ id: 'typo', kind: 'file-name' }] })),
+      /unknown pattern kind "file-name"/,
+    );
+  });
+});
+
+test('config validation: a prefix-id pattern missing "digits" throws instead of matching nothing', () => {
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'docs/prompts'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'citer.md'), 'ver `prompt-042` para detalhes.');
+
+  withCwd(dir, () => {
+    assert.throws(
+      () =>
+        run(
+          baseCfg({
+            patterns: [{ id: 'prompts', kind: 'prefix-id', prefix: 'prompt', dir: 'docs/prompts' }],
+          }),
+        ),
+      /"digits" is missing or not a number/,
+    );
+  });
+});
+
 test('both pattern kinds active simultaneously in the same file do not interfere', () => {
   const dir = tmpRepo();
   fs.mkdirSync(path.join(dir, 'docs/prompts'), { recursive: true });

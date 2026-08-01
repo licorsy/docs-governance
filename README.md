@@ -193,7 +193,19 @@ fragment_sync: {
 ```
 
 turns the next silent drift between those two files into a `docgov check`
-failure instead of another LLM-audit finding.
+failure instead of another LLM-audit finding. In the real `git-governance`
+repository that line sits inside a fenced (` ```text `) diagram, so the
+markers have to wrap the fence itself rather than sit inside it — an HTML
+comment placed inside a fenced code block renders as literal text, not a
+comment, and `markedBlockLines` doesn't care either way as long as the
+markers themselves are outside the fence.
+
+`fragment_sync` findings are attributed to the destination file, not the
+source, so editing only the source and forgetting to update a destination
+is caught by a full `docgov check` (CI, layer 2) but **not** by `docgov
+check --changed` (pre-commit, layer 1) unless that destination is also
+staged in the same commit — worth knowing before relying on pre-commit
+alone to catch fragment drift.
 
 **`numbered_reference_consistency`** — for a canonical ordered sequence
 ("Layer N") cited by number in prose. This repository's own README cost
@@ -210,16 +222,20 @@ numbered_reference_consistency: {
 
 would not have caught that exact historical bug (both the old and new
 layer numbers stayed in-range throughout the rename), but it does catch
-the more common failure mode of the same class of edit — one file getting
-bumped to "Layer 6" a step ahead of the other, before the canonical
-`valid` list itself is updated. For the stronger guarantee (the same
+the more common failure mode of the same class of edit — one file's
+citation getting bumped one number ahead of the other's, before the
+canonical `valid` list itself is updated. For the stronger guarantee (the same
 conceptual step must carry the same number in every file), the existing
 `facts` rule's `required_in` can already pin an exact heading string to an
 exact file — no new rule needed for that case.
 
 **`dead_citations`** — for inline-code citations (`` `prompt-042` ``,
 `` `012-slug.md` ``) that `internal-links` can't see because they aren't
-real Markdown link syntax:
+real Markdown link syntax. Unlike the `fragment_sync` and
+`numbered_reference_consistency` examples above, this one is syntax-illustrative
+only: it demonstrates the two supported pattern kinds (`filename`,
+`prefix-id`), not a verified finding against a specific repository's real
+citation convention.
 
 ```js
 dead_citations: {
@@ -230,6 +246,9 @@ dead_citations: {
   ],
 },
 ```
+
+What this buys you: a mechanical resolve/no-resolve check in place of a
+manual per-round LLM sweep for dangling inline-code references.
 
 ## Development
 

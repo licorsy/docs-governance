@@ -126,6 +126,22 @@ test('checkFragment: multiple destinations, mixed result — only the mismatched
   });
 });
 
+test('run: forward-slash destination path in config is normalized to the native separator in finding.file', () => {
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'sub'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'source.md'), `${block('branch-flow', 'Original content.')}\n`);
+  fs.writeFileSync(path.join(dir, 'sub', 'dest.md'), `${block('branch-flow', 'Different content.')}\n`);
+  withCwd(dir, () => {
+    const summary = run({
+      fragments: [{ id: 'branch-flow', source: 'source.md', destinations: ['sub/dest.md'] }],
+    });
+    assert.strictEqual(summary.findings.length, 1);
+    // Same assertion shape as test/walk.test.js's toNative tests: compare
+    // against a path.sep-joined literal so this stays meaningful on any OS.
+    assert.strictEqual(summary.findings[0].file, ['sub', 'dest.md'].join(path.sep));
+  });
+});
+
 test('run: multiple independent fragments do not interfere with each other', () => {
   const dir = tmpRepo();
   fs.writeFileSync(
