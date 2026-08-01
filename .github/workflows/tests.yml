@@ -8,19 +8,24 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 20 is the version action/action.yml defaults to; 24 is Active LTS.
+        # Both are exercised here so the README's cross-version test-invocation
+        # claim is enforced by this pipeline, not asserted in prose.
+        node-version: ['20', '24']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
       - name: Run engine tests
-        run: node --test test/*.test.js
+        run: node --test
 
-      # Dogfooding: o motor roda contra este próprio repositório. Não há
-      # .docgov.config.js aqui de propósito — este repo é CÓDIGO, isento do
-      # regime de frontmatter/changelog que ele governa nos outros. O que se
-      # verifica é que a CLI falha com o código 2 (erro de setup), não que ela
-      # explode.
+      # Dogfooding: the engine runs against this very repository. There is no
+      # .docgov.config.js here on purpose — this repo is CODE, exempt from the
+      # frontmatter/changelog regime it governs elsewhere. What's verified is
+      # that the CLI fails with exit code 2 (setup error), not that it crashes.
       - name: CLI reports a missing config as a setup error, not a crash
         run: |
           set +e

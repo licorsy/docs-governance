@@ -1,6 +1,6 @@
-# O conteúdo deste repositório é executado em runners Linux (composite action)
-# e por hooks via sh. Normalizar para LF no repositório evita que um clone em
-# Windows produza um script que o runner não consegue executar.
+# This repository's content runs on Linux runners (composite action) and via
+# sh hooks. Normalizing to LF in the repository stops a Windows clone from
+# producing a script the runner can't execute.
 * text=auto eol=lf
 *.png binary
 *.jpg binary
