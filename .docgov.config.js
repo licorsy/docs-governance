@@ -72,7 +72,55 @@ module.exports = {
     },
 
     // ---- Phase 2+ content rules ----
-    // Deliberately inert. Each exists to pin a fact that has ALREADY drifted
-    // here; adding entries speculatively is how a config turns into logic.
+    // Each exists to pin a fact that has ALREADY drifted here; adding entries
+    // speculatively is how a config turns into logic. Everything else stays
+    // inert until a real defect motivates it.
+    facts: {
+      // NOT shadow. `facts` ships shadow-on, which reports and never fails —
+      // and a pin that only reports is precisely what let the first entry
+      // below drift unnoticed in the repository that SHIPS this rule. Turning
+      // it off also makes it run under `--changed`, so pre-commit catches
+      // drift rather than CI at promotion time.
+      shadow: false,
+      scope_dirs: ['agents', 'commands'],
+      root_files: ['CLAUDE.md', 'README.md'],
+      entries: [
+        {
+          id: 'docs-governance-guard-clauses',
+          value: "github.event_name == 'pull_request' && hashFiles('.docgov.config.js') != '' && hashFiles('.github/workflows/docs-governance.yml') == ''",
+          why: 'this repository shipped a ONE-clause guard while its own CLAUDE.md '
+            + 'asserted three — the engine failing the check it sells. '
+            + 'git-governance pins the same fact and stayed correct; this repo '
+            + 'had no facts entry at all, which is the whole reason the drift '
+            + 'survived here and nowhere else',
+          required_in: [
+            {
+              file: 'CLAUDE.md',
+              pattern: /all three of[\s\S]*?hashFiles\('\.github\/workflows\/docs-governance\.yml'\) == ''/,
+            },
+            {
+              file: '.github/workflows/pr-checks.yml',
+              pattern: /github\.event_name == 'pull_request' &&[\s\S]*?hashFiles\('\.docgov\.config\.js'\) != '' &&[\s\S]*?hashFiles\('\.github\/workflows\/docs-governance\.yml'\) == ''/,
+            },
+          ],
+        },
+        {
+          id: 'commit-msg-lint-skips-merges',
+          value: 'git log --no-merges --format=%s',
+          why: 'without --no-merges the Conventional Commits check lints '
+            + 'GitHub-generated "Merge pull request #N from ..." subjects, which '
+            + 'can never conform — so it fails by construction on every '
+            + 'develop -> staging promotion, the exact PR it exists to guard. '
+            + 'This repo shipped the broken form; three such subjects sit in '
+            + 'the current promotion range',
+          required_in: [
+            {
+              file: '.github/workflows/pr-checks.yml',
+              pattern: /git log --no-merges --format=%s/,
+            },
+          ],
+        },
+      ],
+    },
   },
 };

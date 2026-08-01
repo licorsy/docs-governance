@@ -36,7 +36,16 @@ jobs:
         run: |
           # commit-msg hooks don't run under `pre-commit run --all-files`,
           # so each commit subject in the PR range is checked explicitly.
-          git log --format=%s "${BASE_REF}..${HEAD_REF}" | while IFS= read -r subject; do
+          #
+          # --no-merges is load-bearing on promotion PRs. GitHub generates
+          # "Merge pull request #N from owner/branch" itself, and that string
+          # can never be a Conventional Commit, so linting it fails by
+          # construction. Every develop -> staging PR contains at least one,
+          # because merging into develop is what creates them - which made this
+          # check block the exact promotions it is meant to guard. The local
+          # commit-msg hook never saw the problem: it runs on commits a human
+          # writes, and nobody writes a merge commit by hand.
+          git log --no-merges --format=%s "${BASE_REF}..${HEAD_REF}" | while IFS= read -r subject; do
             echo "$subject" > /tmp/commit-msg
             pre-commit run conventional-pre-commit --hook-stage commit-msg --commit-msg-filename /tmp/commit-msg || exit 1
           done
@@ -47,7 +56,7 @@ jobs:
       # plugins — docs-governance never brings its own trigger, it's just
       # invoked here as a step. See CLAUDE.md ("Companion plugins").
       - name: Check documentation consistency (docs-governance)
-        if: hashFiles('.docgov.config.js') != ''
+        if: github.event_name == 'pull_request' && hashFiles('.docgov.config.js') != '' && hashFiles('.github/workflows/docs-governance.yml') == ''
         uses: licorsy/docs-governance/action@v1
         with:
           base-sha: ${{ github.event.pull_request.base.sha }}
