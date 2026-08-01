@@ -26,9 +26,11 @@ const RULES = [
   require('../lib/rules/changelog-retention'),
   require('../lib/rules/version-bump'),
   // Phase 2 (personal-os/local-notes/030): content rules, shadow mode until
-  // precision is proven. Each rule's config is empty (`entries: []`) by
-  // default — with no entries declared by the repository, each one runs and
-  // finds nothing, which is different from being disabled.
+  // precision is proven. Each one is inert until the repository declares what
+  // to check — `entries: []` for declared_counts/sum_decomposition/facts,
+  // empty `scope_dirs`/`root_files` for version_citations (it has no
+  // `entries` field) — and runs and finds nothing until then, which is
+  // different from being disabled.
   require('../lib/rules/declared-counts'),
   require('../lib/rules/sum-decomposition'),
   require('../lib/rules/facts'),
@@ -82,7 +84,7 @@ function cmdCheck(args) {
   const only = args.flags.rule ? String(args.flags.rule).split(',') : null;
   const staged = args.flags.changed ? stagedMarkdown() : null;
   if (args.flags.changed && staged === null) {
-    console.error('docgov: --changed needs a git repository with a staged set; running full check');
+    console.error('docgov: --changed needs a git repository with a staged set; running unfiltered (shadow rules stay skipped under --changed)');
   }
 
   let failed = 0;
@@ -223,14 +225,12 @@ function discover(cwd) {
   try {
     const recent = execFileSync('git', ['log', '-n', '80', '--name-only', '--pretty=format:'], { encoding: 'utf8' })
       .split('\n').filter(Boolean);
-    const touched = new Set(recent.map((f) => f.split('/')[0]));
     stale = scopeDirs.flatMap((d) => {
       const subs = fs.existsSync(d)
         ? fs.readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => `${d}/${e.name}`)
         : [];
       return subs.filter((s) => !recent.some((f) => f.startsWith(s + '/')));
     });
-    void touched;
   } catch { /* no git: no history suggestion */ }
 
   return { scopeDirs, rootFiles, marker: counts[0] && counts[0].n > 0 ? counts[0].marker : 'Changelog:', stale };
@@ -257,11 +257,14 @@ module.exports = {
   rules: {
     frontmatter: {
       scope_dirs: ${list(d.scopeDirs)},
-      root_files: ${list(d.rootFiles)},
+      root_files: [],
       exclude_prefixes: [],${d.stale.length ? `\n      // detected candidates for frozen history: ${d.stale.join(', ')}` : ''}
       // ids from these count toward resolving \`related:\`, but the files
-      // themselves aren't checked
-      id_only_sources: [],
+      // themselves aren't checked — README/AGENTS/CLAUDE.md rarely carry the
+      // full frontmatter schema, so \`init\` proposes them here, not in
+      // \`root_files\`. Move an entry up to \`root_files\` once you've actually
+      // added frontmatter to it and want it validated.
+      id_only_sources: ${list(d.rootFiles)},
       required: ['title', 'doc_type', 'description', 'status', 'version', 'created', 'updated', 'language'],
       status_enum: ['draft', 'active', 'deprecated', 'archived'],
       doc_type_enum: null, // null = don't enforce the enum
@@ -290,8 +293,12 @@ module.exports = {
     },
 
     // ---- Phase 2: content rules, shadow mode until precision is proven ----
-    // Each one has no entries until you declare one — with no entries, the
-    // rule runs and finds nothing (missing data, not an error). Examples:
+    // Each one is inert until you declare what to check — \`entries\` for the
+    // first three, \`scope_dirs\`/\`root_files\` for version_citations (it has
+    // no \`entries\` field) — and runs and finds nothing until then (missing
+    // data, not an error). Shadow mode itself is a default this engine applies
+    // (see \`lib/config.js\`), not a field written here; set \`shadow: false\`
+    // below to promote one to blocking. Examples:
     //
     // declared_counts: { entries: [
     //   { file: 'docs/index.md', pattern: /(\\d+) prompts total/, dir: 'docs/prompts' },
@@ -364,7 +371,7 @@ function cmdInit(args) {
   fs.writeFileSync(target, renderConfig(d), 'utf8');
   console.log(`wrote .docgov.config.js`);
   console.log(`  scope: ${d.scopeDirs.join(', ')}`);
-  console.log(`  root files: ${d.rootFiles.join(', ') || '(none)'}`);
+  console.log(`  root-level files: ${d.rootFiles.join(', ') || '(none)'} (frontmatter: id-only; changelog-retention: validated)`);
   console.log(`  changelog marker: "${d.marker}"`);
   if (d.stale.length) console.log(`  possible frozen history (commented, not enabled): ${d.stale.join(', ')}`);
 
@@ -380,8 +387,10 @@ const USAGE = `docgov ${VERSION} — mechanical documentation-consistency checks
   docgov sync-status
 
   check       run every enabled rule; exit 1 on findings, 2 on setup error.
-              Rules with \`shadow: true\` in config never fail the process and
-              never run under --changed; findings print prefixed "[shadow]"
+              Rules in shadow mode (\`shadow: true\`, on by default for the
+              Phase 2 content rules — see lib/config.js) never fail the
+              process and never run under --changed; findings print prefixed
+              "[shadow]"
   --changed   report only findings in staged files (for pre-commit)
   --base-sha  base commit for the version-bump rule (or BASE_SHA env var)
   init        generate .docgov.config.js by discovering this repository's shape

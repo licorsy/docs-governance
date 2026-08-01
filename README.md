@@ -32,18 +32,23 @@ judgement, and only for judgement.
 ## The cost ladder
 
 Each layer is more expensive than the last and only receives what the previous
-one cannot settle. **Layers 1–2 cost no tokens at all.**
+one cannot settle. **Layers 1–3 cost no tokens at all.**
 
 | Layer | What | Cost |
 |---|---|---|
 | 1 | `docgov check --changed` in `pre-commit` | ~50 ms — catches drift before it exists |
 | 2 | `docgov check` in CI | ~2 s, whole repository |
-| 3 | `doc-consistency-auditor` subagent | tokens — contradiction, ambiguity, description-vs-norm |
-| 4 | `fix-verifier` subagent | tokens — regressions the fixes themselves introduced |
+| 3 | `ctxlint` context-file hygiene scan | zero tokens — token/staleness analysis on context files |
+| 4 | `doc-consistency-auditor` subagent | tokens — contradiction, ambiguity, description-vs-norm |
+| 5 | `fix-verifier` subagent | tokens — regressions the fixes themselves introduced |
 
-The ratchet that makes this cheaper over time: **any finding from layer 3 that
+The ratchet that makes this cheaper over time: **any finding from layer 4 that
 turns out to be mechanically detectable becomes a rule in layer 1.** Moved down,
 that defect class never costs a token again.
+
+This is the canonical numbering — `/docgov-audit` (the command that drives an
+audit session) names its own steps against these same layer numbers, starting
+at 2 since layer 1 is a `pre-commit` hook and not part of a manual session.
 
 ## Install
 
@@ -79,7 +84,7 @@ Scope `pull_request.branches` to wherever this repo already does remote CI —
 usually its promotion point(s), not every branch. This action checks the
 *whole* repository, not just changed files (pair it with `docgov check
 --changed` in `pre-commit` for the changed-files-only, zero-token layer — see
-"The cost ladder" below), so there's rarely a reason to also run it on every
+"The cost ladder" above), so there's rarely a reason to also run it on every
 `push`: a `pull_request` at the branches that matter is normally enough, and
 it avoids firing on every merge into a fast-moving, frequently-merged branch.
 
@@ -94,7 +99,11 @@ compare against.
 /plugin install docs-governance@docs-governance
 ```
 
-Ships the `/docgov-audit` command and the two read-only subagents.
+Ships the `/docgov-audit` command and its two subagents: `doc-consistency-auditor`
+is read-only by tool grant, `fix-verifier` holds `Bash` for read-only inspection
+and non-mutating verification (e.g. running the existing test suite) and is
+read-only by instruction — never to write files, install anything, or change
+repository state.
 
 ### In a repository
 
@@ -115,20 +124,26 @@ writes a commented `.docgov.config.js` you then edit. No tokens involved — it 
 | `frontmatter` | Required fields, `status`/`doc_type` enums, date format, and **cross-file `related:` id resolution** — an id only resolves if some other document declares it |
 | `internal-links` | Every relative Markdown link resolves. Fenced code blocks are stripped first (nested fences included), so example placeholders are not flagged |
 | `changelog-retention` | At most N entries in a document's body changelog; full history lives in git |
-| `version-bump` | A modified versioned document must bump `version:`, monotonically. Additions and renames are out of scope |
+| `version-bump` | A modified versioned document must bump `version:`, monotonically. Additions, renames, and deletions are out of scope |
 | `declared_counts` *(shadow)* | A prose count ("N files") matches a real directory listing, not another string |
-| `sum_decomposition` | A declared sum ("20 + 13 + 2 + 2 = 37") is recomputed, not string-compared |
+| `sum_decomposition` *(shadow)* | A declared sum ("20 + 13 + 2 + 2 = 37") is recomputed, not string-compared |
 | `facts` *(shadow)* | An atomic fact ("5 scheduled routines") is present where it's supposed to be (`required_in`), and its stale form doesn't survive outside exempt context (`forbidden`) |
 | `version_citations` *(shadow)* | A citation like `` `path.md` v1.9 `` is checked against that file's real `version:` frontmatter |
 | `sync_destinations` | A self-contained "destination" document (e.g. a duplicated paste target) declares `covers: { id: "X.Y" }` in its own frontmatter; checked against the source's real version — see `docgov sync-status` |
 
-**Shadow rules** (`shadow: true` in config) never fail `check`/CI and never run
-under `--changed` (pre-commit) — findings print prefixed `[shadow]`. They start
-here because they are heuristic (regex over prose) and the dominant measured
-risk in this engine is false positives training people to reach for
-`--no-verify`. Promote a shadow rule to blocking only after measuring precision
-on a real corpus — see `lib/exempt.js` for the historical/self-qualifying/
-fenced-code exemption predicate every content rule runs through first.
+**Shadow rules** (`shadow: true` by default in `lib/config.js` — `docgov init`
+doesn't write the field explicitly, so don't expect to find it in a generated
+config) never fail `check`/CI and never run under `--changed` (pre-commit) —
+findings print prefixed `[shadow]`. They start here because they are heuristic
+(regex over prose) and the dominant measured risk in this engine is false
+positives training people to reach for `--no-verify`. Promote a shadow rule to
+blocking only by setting `shadow: false` in your config, and only after
+measuring precision on a real corpus — see `lib/exempt.js` for the
+historical/self-qualifying/fenced-code exemption predicate every content rule
+runs through first, except
+`facts.required_in`, deliberately — see `lib/rules/facts.js` for why asking
+"does this file state X anywhere?" doesn't carry the same false-positive risk
+that the predicate exists to guard against.
 
 ## Configuration
 
@@ -154,11 +169,19 @@ broken parity with the checks this engine replaced.
 ## Development
 
 ```bash
-node --test test/*.test.js
+node --test
 ```
 
-The `*.test.js` glob is required — pointing `--test` at the directory fails.
-Node expands it itself, so the line works the same in PowerShell and in bash.
+No path argument — Node's own default test discovery already finds every
+`*.test.js` file under `test/`. This is the form CI actually enforces (see the
+`node-version` matrix in `.github/workflows/tests.yml`) rather than a claim
+made only in prose. Two forms that look equivalent aren't, on Node 20 (still
+widely deployed): a literal `test/*.test.js` glob only resolves if the shell
+expands it first (bash does; the test runner itself gained native glob support
+for file arguments in Node 22), and pointing `--test` at the bare directory
+name (`node --test test`) is treated as a single module argument on Node 24
+and fails, even though it happens to work on Node 20. `node --test` with no
+argument sidesteps both.
 
 ## Non-goals
 

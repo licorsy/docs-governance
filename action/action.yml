@@ -12,11 +12,11 @@ inputs:
     required: false
     default: '.docgov.config.js'
   base-sha:
-    # NAO escreva uma expressao de template aqui, nem como exemplo: o GitHub
-    # avalia expressoes no manifesto do action, e o contexto `github` nao
-    # existe nesse escopo — o action inteiro falha ao carregar, com
-    # "Unrecognized named-value: 'github'". Custou um CI vermelho para
-    # descobrir. O exemplo de uso fica no README.
+    # Do NOT write a template expression here, not even as an example: GitHub
+    # evaluates expressions in the action manifest, and the `github` context
+    # doesn't exist in this scope — the whole action fails to load, with
+    # "Unrecognized named-value: 'github'". Cost a red CI run to discover.
+    # The usage example lives in the README.
     description: >-
       Base commit for the version-bump rule. On pull_request, pass the pull
       request base sha. Leave empty on push — the rule abstains instead of
