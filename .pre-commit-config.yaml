@@ -1,5 +1,5 @@
 # Local validation — the primary governance gate for this repo and for any
-# repo this plugin is scaffolded into. See CLAUDE.md for the full policy.
+# repo this plugin is scaffolded into. See AGENTS.md for the full policy.
 #
 # Install once per clone:
 #   pre-commit install
@@ -33,7 +33,7 @@ repos:
   # If this repo already has a companion plugin's raw hook installed at
   # .git/hooks/pre-commit (e.g. `docgov init --hook`), register it here
   # BEFORE running `pre-commit install`, or that hook is silently replaced.
-  # See CLAUDE.md ("Companion plugins"). Uncomment and adjust the entry:
+  # See AGENTS.md ("Companion plugins"). Uncomment and adjust the entry:
   #
   # - repo: local
   #   hooks:
