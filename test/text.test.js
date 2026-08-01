@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { stripFencedBlocks, fencedLineIndices, changelogBlockRange } = require('../lib/text');
+const { stripFencedBlocks, fencedLineIndices, changelogBlockRange, markedBlockLines } = require('../lib/text');
 
 test('stripFencedBlocks removes a simple fence', () => {
   const content = ['antes', '```', 'dentro', '```', 'depois'].join('\n');
@@ -33,4 +33,42 @@ test('changelogBlockRange spans from marker through trailing blank lines, same s
 
 test('changelogBlockRange returns null without the marker', () => {
   assert.strictEqual(changelogBlockRange('# doc\n\nsem changelog', 'Changelog:'), null);
+});
+
+test('markedBlockLines finds a well-formed block and returns its interior text', () => {
+  const content = [
+    '# doc',
+    '<!-- fragment:intro:start -->',
+    'linha 1',
+    'linha 2',
+    '<!-- fragment:intro:end -->',
+    '## fim',
+  ].join('\n');
+  const block = markedBlockLines(content, 'intro');
+  assert.strictEqual(block.start, 1);
+  assert.strictEqual(block.end, 4);
+  assert.strictEqual(block.text, 'linha 1\nlinha 2');
+});
+
+test('markedBlockLines returns null when the start marker is missing', () => {
+  const content = ['# doc', 'linha 1', '<!-- fragment:intro:end -->'].join('\n');
+  assert.strictEqual(markedBlockLines(content, 'intro'), null);
+});
+
+test('markedBlockLines returns null when the end marker is missing', () => {
+  const content = ['# doc', '<!-- fragment:intro:start -->', 'linha 1'].join('\n');
+  assert.strictEqual(markedBlockLines(content, 'intro'), null);
+});
+
+test('markedBlockLines does not cross-match markers from a different id', () => {
+  const content = [
+    '<!-- fragment:a:start -->',
+    'conteúdo de a',
+    '<!-- fragment:a:end -->',
+    '<!-- fragment:b:start -->',
+    'conteúdo de b',
+    '<!-- fragment:b:end -->',
+  ].join('\n');
+  const block = markedBlockLines(content, 'a');
+  assert.strictEqual(block.text, 'conteúdo de a');
 });

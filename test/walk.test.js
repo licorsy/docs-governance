@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { walkScoped, walkTree, underPrefix, toNative, scopedFiles } = require('../lib/walk');
+const { walkScoped, walkTree, underPrefix, toNative, scopedFiles, resolveCitedPath } = require('../lib/walk');
 
 function tmpRepo() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'docgov-walk-'));
@@ -110,6 +110,21 @@ test('scopedFiles drops a root_file that does not exist', () => {
   process.chdir(dir);
   try {
     assert.deepStrictEqual(scopedFiles({ root_files: ['MISSING.md'] }), []);
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test('resolveCitedPath resolves a root-relative citation against cwd', () => {
+  assert.strictEqual(resolveCitedPath('AGENTS.md', 'docs/prompts/009.md'), path.join('docs', 'prompts', '009.md'));
+});
+
+test('resolveCitedPath resolves a dot-relative citation against the citing file dir', () => {
+  const dir = tmpRepo();
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    assert.strictEqual(resolveCitedPath('state/tasks.md', '../docs/RUNBOOK.md'), path.join('docs', 'RUNBOOK.md'));
   } finally {
     process.chdir(cwd);
   }
