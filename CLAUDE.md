@@ -3,7 +3,7 @@ title: "Claude Code Instructions"
 doc_type: instruction
 description: "Git branch, commit, and merge policy in force for this repository, scaffolded from the git-governance plugin: the branch flow and prefix taxonomy, Conventional Commits, the autonomous-to-develop and human-gated-to-staging/main permission model, the local and remote validation layers, and how companion plugins compose with it."
 status: active
-version: "1.0.0"
+version: "1.1.0"
 created: 2026-08-01
 updated: 2026-08-01
 language: en
@@ -12,14 +12,13 @@ owner: Alexandre Clemente
 tags: [git, branching, commits, merge-policy, claude-code]
 ---
 
-# git-governance
+# Claude Code Instructions
 
 Portable Git branch/merge/commit governance for a solo maintainer working with
-Claude Code. This file is both the policy for *this* repository and the
-literal file scaffolded into any repository this plugin is installed into
-(`scripts/init-governance.sh` copies it as-is — see "Replicating this setup"
-below). Do not add project-specific detail here that wouldn't make sense
-verbatim in another repo.
+Claude Code, scaffolded here from the `git-governance` plugin. Do not add
+project-specific detail that wouldn't make sense verbatim in another repo — the
+plugin's copy is the source, and this one is expected to stay a faithful
+scaffold of it.
 
 The frontmatter block above is the one exception: `created`, `updated`, and
 `owner` describe *this* repository, and a scaffolded copy should reset them to
