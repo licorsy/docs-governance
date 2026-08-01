@@ -179,7 +179,7 @@ repository declares what to check.
 
 **`fragment_sync`** — for prose duplicated verbatim across files with
 nothing keeping the copies in sync. Example: `licorsy/git-governance`'s
-`README.md:31` and `CLAUDE.md:13` both currently contain the byte-identical
+`README.md` and `AGENTS.md` both currently contain the byte-identical
 line `feat/* (also fix/, refactor/, docs/, chore/, hotfix/)  ->  develop  ->  staging  ->  main`, with no mechanism enforcing that. Wrapping that
 line in `<!-- fragment:branch-flow:start/end -->` markers in both files and
 configuring:
@@ -187,7 +187,7 @@ configuring:
 ```js
 fragment_sync: {
   fragments: [
-    { id: 'branch-flow', source: 'README.md', destinations: ['CLAUDE.md'] },
+    { id: 'branch-flow', source: 'AGENTS.md', destinations: ['README.md'] },
   ],
 },
 ```
@@ -216,8 +216,8 @@ fragment_sync: {
   fragments: [
     {
       id: 'always-on-rule',
-      source: 'CLAUDE.md',
-      destinations: ['AGENTS.md'],
+      source: 'AGENTS.md',
+      destinations: ['CLAUDE.md'],
       anchor: { file: 'docs/manuals/operation-manual.md', text: '## Step 10' },
     },
   ],
