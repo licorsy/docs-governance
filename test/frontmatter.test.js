@@ -80,6 +80,25 @@ test('malformed created date fails', () => {
   });
 });
 
+test('run() resolves related ids via id_only_sources without validating those files', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docgov-run-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'docs'));
+    fs.writeFileSync(path.join(dir, 'docs', 'a.md'), doc({ id: 'a', related: '[b]' }), 'utf8');
+    fs.writeFileSync(path.join(dir, 'README.md'), '---\nid: b\n---\n\n# not a full frontmatter doc\n', 'utf8');
+    const cwd = process.cwd();
+    process.chdir(dir);
+    try {
+      const result = rule.run({ ...CFG, scope_dirs: ['docs'], id_only_sources: ['README.md'] });
+      assert.deepStrictEqual(result.findings, []);
+    } finally {
+      process.chdir(cwd);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('missing frontmatter block fails with a single explicit error', () => {
   withFile('# just a heading\n', (f) => {
     const errors = rule.validateFile(f, null, CFG);

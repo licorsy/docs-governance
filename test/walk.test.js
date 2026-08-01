@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { walkScoped, walkTree, underPrefix, toNative } = require('../lib/walk');
+const { walkScoped, walkTree, underPrefix, toNative, scopedFiles, resolveCitedPath } = require('../lib/walk');
 
 function tmpRepo() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'docgov-walk-'));
@@ -80,4 +80,52 @@ test('toNative converts "/" to the native separator', () => {
 
 test('toNative is a no-op on an already-native path with no slashes', () => {
   assert.strictEqual(toNative('README.md'), 'README.md');
+});
+
+test('scopedFiles combines scope_dirs and root_files, honouring exclude_prefixes and exclude_files', () => {
+  const dir = tmpRepo();
+  fs.mkdirSync(path.join(dir, 'docs', 'frozen'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'docs', 'keep.md'), 'x');
+  fs.writeFileSync(path.join(dir, 'docs', 'skip-by-file.md'), 'x');
+  fs.writeFileSync(path.join(dir, 'docs', 'frozen', 'old.md'), 'x');
+  fs.writeFileSync(path.join(dir, 'README.md'), 'x');
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    const found = scopedFiles({
+      scope_dirs: ['docs'],
+      exclude_prefixes: ['docs/frozen'],
+      exclude_files: ['docs/skip-by-file.md'],
+      root_files: ['README.md'],
+    }).sort();
+    assert.deepStrictEqual(found, [path.join('docs', 'keep.md'), 'README.md'].sort());
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test('scopedFiles drops a root_file that does not exist', () => {
+  const dir = tmpRepo();
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    assert.deepStrictEqual(scopedFiles({ root_files: ['MISSING.md'] }), []);
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test('resolveCitedPath resolves a root-relative citation against cwd', () => {
+  assert.strictEqual(resolveCitedPath('AGENTS.md', 'docs/prompts/009.md'), path.join('docs', 'prompts', '009.md'));
+});
+
+test('resolveCitedPath resolves a dot-relative citation against the citing file dir', () => {
+  const dir = tmpRepo();
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    assert.strictEqual(resolveCitedPath('state/tasks.md', '../docs/RUNBOOK.md'), path.join('docs', 'RUNBOOK.md'));
+  } finally {
+    process.chdir(cwd);
+  }
 });

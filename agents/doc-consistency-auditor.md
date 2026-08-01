@@ -9,9 +9,9 @@ You audit the consistency of this repository's set of documents. **You are read-
 
 ## 1. Enumerate the corpus
 
-`Glob` the repository's versioned documents — don't use a fixed list from memory, the set grows. Include, if they exist: README, AI instruction files (`AGENTS.md`/`CLAUDE.md`/equivalents), ADRs, runbooks, state/planning documents, versioned prompts, and **`.claude/skills/*/SKILL.md` and `.claude/agents/*.md`**.
+`Glob` the repository's versioned documents — don't use a fixed list from memory, the set grows. Include, if they exist: README, AI instruction files (`AGENTS.md`/`CLAUDE.md`/equivalents), ADRs, runbooks, state/planning documents, versioned prompts, and **any platform-frontmatter files, wherever the repo's layout puts them**: `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, and — for a repo that is itself a Claude Code plugin — its plugin-root `commands/*.md`, `agents/*.md`, `skills/*/SKILL.md`.
 
-The last two matter disproportionately: their frontmatter is fixed by the platform, so **they have no `version:` or changelog** — drift there is invisible to any process that depends on versioning, and only this scan catches it.
+These matter disproportionately: their frontmatter is fixed by the platform, so **they have no `version:` or changelog** — drift there is invisible to any process that depends on versioning, and only this scan catches it.
 
 Out of scope: pre-triage drafts, content declared frozen (session records, dated reports), and files marked sensitive.
 

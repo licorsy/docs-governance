@@ -46,7 +46,7 @@ test('checkRequired is silent when the file states the fact', () => {
 });
 
 test('checkRequired counts a match even on a line that would be exempt for checkForbidden — real regression', () => {
-  // Achado real no personal-os (29/07): AGENTS.md afirma, na MESMA linha,
+  // Achado real no personal-os (2026-07-29): AGENTS.md afirma, na MESMA linha,
   // "4 rotinas... que existiam então" (histórico) e "5 rotinas... hoje"
   // (vigente). Isenção por linha esconderia a segunda parte se
   // `checkRequired` respeitasse o predicado — por isso não respeita.
