@@ -11,7 +11,11 @@ and a script settles it in milliseconds, identically every time. Spending a
 model on that is waste, and it is also *worse*: the script never gets tired on
 the tenth round.
 
-## Layer 1 — deterministic, zero tokens
+This command's steps are numbered against the engine's canonical cost ladder
+(see the main README's "The cost ladder"), starting at layer 2 — layer 1 is
+the `pre-commit` hook and isn't part of a manual audit session.
+
+## Layer 2 — deterministic, zero tokens
 
 Run:
 
@@ -19,15 +23,15 @@ Run:
 node "${CLAUDE_PLUGIN_ROOT}/bin/docgov.js" check
 ```
 
-Quote the aspas — plugin paths routinely contain spaces.
+Keep the quotes — plugin paths routinely contain spaces.
 
 - **Findings?** Fix them first, then re-run until clean. Do not proceed to
-  layer 2 with known mechanical findings outstanding: they generate noise that
-  makes the semantic pass harder to read.
+  layer 4 (the semantic pass) with known mechanical findings outstanding: they
+  generate noise that makes that pass harder to read.
 - **No config?** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/docgov.js" init` and
   review what it generated before committing it.
 
-## Layer 2 — context-file hygiene, zero tokens
+## Layer 3 — context-file hygiene, zero tokens
 
 ```bash
 npx -y @yawlabs/ctxlint@latest
@@ -40,15 +44,15 @@ non-English corpus it flags dates (`14/07/2026`), range notation
 real repository: 12 of 12 errors were false positives. The token and staleness
 figures, however, are correct and are often the highest-value output here.
 
-## Layer 3 — semantic audit, costs tokens
+## Layer 4 — semantic audit, costs tokens
 
-Only now, and only for what layers 1–2 structurally cannot see: contradiction
+Only now, and only for what layers 2–3 structurally cannot see: contradiction
 requiring judgement, ambiguity, *description vs. norm*, *artefact vs. generator*.
 
 Launch the `doc-consistency-auditor` subagent. If the user named a scope in the
 arguments, pass it through; otherwise ask for the full corpus scan.
 
-## Layer 4 — after you fix anything
+## Layer 5 — after you fix anything
 
 Launch the `fix-verifier` subagent with the list of what you changed. Its
 working premise is that fixes introduce defects — measured at roughly a quarter
@@ -57,10 +61,17 @@ this step is how an audit loop fails to converge.
 
 ## The rule that makes this get cheaper over time
 
-**Every finding from layer 3 that turns out to be mechanically detectable must
+**Every finding from layer 4 that turns out to be mechanically detectable must
 become a rule in layer 1.** Report it to the user as such and propose the
 config entry. A defect class that stays in the model layer costs tokens forever;
-moved down, it costs nothing again, permanently.
+moved down, it costs nothing again, permanently. `fragment_sync`,
+`dead_citations`, and `numbered_reference_consistency` are three such
+promotions already in the engine — check whether a new finding fits one of
+them before proposing a new rule.
 
-Never edit documents from inside layers 3–4 — both subagents are read-only by
-construction. You, the invoking session, apply the fixes.
+Never edit documents from inside layers 4–5 — the auditor is read-only by tool
+grant (`Read, Grep, Glob` only); the verifier is read-only by instruction and
+holds `Bash` only for read-only inspection and non-mutating verification (e.g.
+running the existing test suite to check a fixed claim), never to write files,
+install anything, or change repository state. You, the invoking session, apply
+the fixes.
