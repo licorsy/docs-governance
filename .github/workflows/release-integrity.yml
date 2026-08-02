@@ -1,0 +1,34 @@
+name: Release integrity
+
+# Consumers pin this plugin's action as
+# `licorsy/docs-governance/action@v1`, so what they actually execute is whatever
+# the floating tag resolves to — not what is on `main`. A release merged without
+# being tagged keeps serving the previous version indefinitely, and nothing in a
+# normal PR would reveal it.
+#
+# That is not hypothetical here: v1.3.2 merged to `main` and was not tagged, so
+# the fix it carried reached no consumer until someone checked by hand. The
+# sibling repository `git-governance` has the same history at v1.1.0 and v1.4.1.
+#
+# The check being called below already existed when that happened. Nothing was
+# running it in this repository. Shipping a check is not running one — which is
+# why this file exists rather than another entry in a register.
+#
+# Scheduled, never on push to `main`: tagging happens *after* the merge, so a
+# push-triggered run would fail on every release by construction and train
+# everyone to ignore it.
+
+on:
+  schedule:
+    # Daily, offset from the other repositories' runs. Drift is silent and
+    # open-ended, so latency in hours is fine — what matters is that it is
+    # bounded at all.
+    - cron: '44 6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  release-integrity:
+    uses: licorsy/platform-workflows/.github/workflows/release-integrity.yml@v1
+    # Defaults apply: major tag `v1`, and `.claude-plugin/plugin.json` as the
+    # version file — this is a Claude Code plugin, so the version-tag check is
+    # meaningful here and both comparisons run.
