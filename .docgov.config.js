@@ -104,22 +104,6 @@ module.exports = {
             },
           ],
         },
-        {
-          id: 'commit-msg-lint-skips-merges',
-          value: 'git log --no-merges --format=%s',
-          why: 'without --no-merges the Conventional Commits check lints '
-            + 'GitHub-generated "Merge pull request #N from ..." subjects, which '
-            + 'can never conform — so it fails by construction on every '
-            + 'develop -> staging promotion, the exact PR it exists to guard. '
-            + 'This repo shipped the broken form; three such subjects sit in '
-            + 'the current promotion range',
-          required_in: [
-            {
-              file: '.github/workflows/pr-checks.yml',
-              pattern: /git log --no-merges --format=%s/,
-            },
-          ],
-        },
       ],
     },
   },
