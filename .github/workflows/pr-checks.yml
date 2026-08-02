@@ -28,27 +28,50 @@ jobs:
       - name: Run file-content hooks
         run: pre-commit run --all-files
 
-      - name: Validate commit messages (Conventional Commits)
-        if: github.event_name == 'pull_request'
+      # The Conventional Commits lint that used to live here was removed
+      # deliberately. It ran only on pull requests into staging/main, and on a
+      # promotion PR every commit in range is already merged into develop — so
+      # it could report unfixable history and nothing else. Correcting a finding
+      # meant rewriting a protected branch.
+      #
+      # The one place it could have prevented something is a work branch into
+      # develop, which is exactly where this workflow does not run, by design.
+      # The commit-msg hook in .pre-commit-config.yaml already gates every
+      # commit as it is written, which is both earlier and cheaper.
+
+  # Promotions only: a pull request into staging must come from develop, and
+  # into main from staging.
+  #
+  # Rulesets require a pull request and block direct pushes, force-pushes and
+  # deletion, but place no constraint on where a pull request comes FROM. A
+  # single-parent commit landed straight on main in this repository that way, so
+  # develop and staging both lacked the file — and because a staging -> main
+  # merge preserves main's side, every later promotion re-showed the same
+  # difference until someone back-merged.
+  #
+  # hotfix/ is not an exception: the git-governance taxonomy is explicit that
+  # the label signals urgency, not a bypass route.
+  promotion-source:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the pull request comes from the branch below it
         env:
-          BASE_REF: ${{ github.event.pull_request.base.sha }}
-          HEAD_REF: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
         run: |
-          # commit-msg hooks don't run under `pre-commit run --all-files`,
-          # so each commit subject in the PR range is checked explicitly.
-          #
-          # --no-merges is load-bearing on promotion PRs. GitHub generates
-          # "Merge pull request #N from owner/branch" itself, and that string
-          # can never be a Conventional Commit, so linting it fails by
-          # construction. Every develop -> staging PR contains at least one,
-          # because merging into develop is what creates them - which made this
-          # check block the exact promotions it is meant to guard. The local
-          # commit-msg hook never saw the problem: it runs on commits a human
-          # writes, and nobody writes a merge commit by hand.
-          git log --no-merges --format=%s "${BASE_REF}..${HEAD_REF}" | while IFS= read -r subject; do
-            echo "$subject" > /tmp/commit-msg
-            pre-commit run conventional-pre-commit --hook-stage commit-msg --commit-msg-filename /tmp/commit-msg || exit 1
-          done
+          case "$BASE" in
+            staging) expected=develop ;;
+            main)    expected=staging ;;
+            *)       echo "No promotion constraint on '$BASE'."; exit 0 ;;
+          esac
+          if [ "$HEAD" != "$expected" ]; then
+            echo "::error::A pull request into '$BASE' must come from '$expected', not '$HEAD'."
+            echo "Branch flow is feat/* -> develop -> staging -> main; staging and main"
+            echo "receive promotions only, never a work branch directly."
+            exit 1
+          fi
+          echo "OK: '$HEAD' -> '$BASE' is a promotion."
 
   # A SEPARATE JOB, not a step in `pre-commit`, and that is the whole point.
   # Steps stop at the first failure, so as a trailing step this check was
@@ -79,3 +102,14 @@ jobs:
         uses: licorsy/docs-governance/action@v1
         with:
           base-sha: ${{ github.event.pull_request.base.sha }}
+
+  # Secret scanning on every run, dependency review self-gated to staging/main
+  # inside the reusable workflow. This repository ships no dependency manifest
+  # today, so dependency-review passes trivially — it is wired now so the
+  # coverage exists the moment one appears, rather than being remembered then.
+  #
+  # GITLEAKS_LICENSE is optional and organization-level; gitleaks runs without
+  # it, with reduced functionality. See licorsy/platform-workflows' README.
+  ci-security:
+    uses: licorsy/platform-workflows/.github/workflows/ci-security.yml@v1
+    secrets: inherit
