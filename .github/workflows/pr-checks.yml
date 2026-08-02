@@ -50,6 +50,25 @@ jobs:
             pre-commit run conventional-pre-commit --hook-stage commit-msg --commit-msg-filename /tmp/commit-msg || exit 1
           done
 
+  # A SEPARATE JOB, not a step in `pre-commit`, and that is the whole point.
+  # Steps stop at the first failure, so as a trailing step this check was
+  # hostage to the commit-message lint above: one non-conforming subject in the
+  # range and the documentation check silently did not run at all. That happened
+  # on a real promotion here — the run reported `skipped` for this check while
+  # the PR looked merely "red on commit messages".
+  #
+  # Reordering would only reverse which check is hostage; separate jobs make
+  # them independent in both directions. The guard stays at STEP level because
+  # `hashFiles()` is not recognized in a job-level `if:`.
+  docs-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # docgov's version-bump rule diffs against a base sha, so it needs
+          # history, not a shallow clone.
+          fetch-depth: 0
+
       # Optional: only runs if this repo also uses the docs-governance plugin
       # (github.com/licorsy/docs-governance) and has configured it. This
       # workflow is the single place that decides *when* CI runs across
