@@ -1,6 +1,6 @@
 {
   "name": "docs-governance",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Mechanical documentation-consistency checks plus the two review subagents that handle only what a script cannot. Run the deterministic layers first; the model is the last resort, not the mechanism. v1.1 adds shadow-mode content rules (declared_counts, sum_decomposition, facts, version_citations) and sync_destinations (covers: frontmatter vs. real version:). v1.2 adds fragment_sync, dead_citations, and numbered_reference_consistency. v1.3 adds an optional `anchor` to fragment_sync, asserting that the heading a synced block restates still exists.\"",
   "author": {
     "name": "Licorsy",
