@@ -171,6 +171,55 @@ test('exemption - historical path: dead citation in a file under historical_path
   });
 });
 
+test('exemption - target_allowlist: filename-kind citation matching an exact-string target is not flagged', () => {
+  const dir = tmpRepo();
+  fs.writeFileSync(path.join(dir, 'citer.md'), 'ver `scaffold/future-module.md` para detalhes.');
+
+  withCwd(dir, () => {
+    const result = run(
+      baseCfg({
+        exempt: { target_allowlist: ['scaffold/future-module.md'] },
+        patterns: [{ id: 'md-files', kind: 'filename' }],
+      }),
+    );
+    assert.strictEqual(result.findings.length, 0);
+  });
+});
+
+test('exemption - target_allowlist: prefix-id citation matching a target is not flagged', () => {
+  const dir = tmpRepo();
+  fs.writeFileSync(path.join(dir, 'citer.md'), 'ver `prompt-999` para detalhes.');
+
+  withCwd(dir, () => {
+    const result = run(
+      baseCfg({
+        exempt: { target_allowlist: ['prompt-999'] },
+        patterns: [{ id: 'prompts', kind: 'prefix-id', prefix: 'prompt', dir: 'docs/prompts', digits: 3 }],
+      }),
+    );
+    assert.strictEqual(result.findings.length, 0);
+  });
+});
+
+test('exemption - target_allowlist: exempts by target, not by line - an unlisted citation sharing the line is still flagged', () => {
+  const dir = tmpRepo();
+  fs.writeFileSync(
+    path.join(dir, 'citer.md'),
+    'ver `scaffold/future-module.md` e também `docs/missing.md` para detalhes.',
+  );
+
+  withCwd(dir, () => {
+    const result = run(
+      baseCfg({
+        exempt: { target_allowlist: ['scaffold/future-module.md'] },
+        patterns: [{ id: 'md-files', kind: 'filename' }],
+      }),
+    );
+    assert.strictEqual(result.findings.length, 1);
+    assert.match(result.findings[0].messages[0], /docs\/missing\.md/);
+  });
+});
+
 test('config validation: an unrecognized pattern kind throws instead of silently finding nothing', () => {
   const dir = tmpRepo();
   fs.writeFileSync(path.join(dir, 'citer.md'), 'ver `docs/real.md` para detalhes.');
