@@ -18,7 +18,7 @@ const { load } = require('../lib/config');
 const { walkScoped } = require('../lib/walk');
 const { parseFrontmatter } = require('../lib/frontmatter');
 
-const VERSION = '1.2.0';
+const VERSION = '1.5.0';
 
 const RULES = [
   require('../lib/rules/frontmatter'),
