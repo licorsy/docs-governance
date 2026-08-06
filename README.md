@@ -133,7 +133,7 @@ writes a commented `.docgov.config.js` you then edit. No tokens involved — it 
 | `version_citations` *(shadow)* | A citation like `` `path.md` v1.9 `` is checked against that file's real `version:` frontmatter |
 | `sync_destinations` | A self-contained "destination" document (e.g. a duplicated paste target) declares `covers: { id: "X.Y" }` in its own frontmatter; checked against the source's real version — see `docgov sync-status` |
 | `fragment_sync` | A canonical block, delimited by `<!-- fragment:id:start/end -->` markers in a source file, must exact-byte-match the same-id block in one or more destination files; an optional `anchor` also asserts that the heading the block restates still exists |
-| `dead_citations` *(shadow)* | An inline-code citation (`` `prompt-042` ``, `` `012-slug.md` ``) resolves to a real file — fills the gap `internal-links` leaves for citations that aren't real Markdown link syntax |
+| `dead_citations` *(shadow)* | An inline-code citation (`` `prompt-042` ``, `` `012-slug.md` ``) resolves to a real file — fills the gap `internal-links` leaves for citations that aren't real Markdown link syntax. Optional `exempt.target_allowlist` (exact strings or `RegExp`) exempts specific citation *targets*, checked per match rather than per line |
 | `numbered_reference_consistency` *(shadow)* | A `layer N`/`step N` style citation resolves to a number in a config-declared canonical sequence |
 
 **Shadow rules** (`shadow: true` by default in `lib/config.js` — `docgov init`
@@ -278,6 +278,39 @@ dead_citations: {
 
 What this buys you: a mechanical resolve/no-resolve check in place of a
 manual per-round LLM sweep for dangling inline-code references.
+
+Some citations are dead by design and always will be — a generated project's
+own future paths, a third-party tool's own output filenames, or this
+repository's own renamed/historical paths kept only as citations. Flagging
+those every run trains people to ignore `dead_citations` output entirely.
+`exempt.target_allowlist` exempts those, by citation *target* rather than by
+line:
+
+```js
+dead_citations: {
+  scope_dirs: ['docs'],
+  patterns: [
+    { id: 'md-files', kind: 'filename' },
+    { id: 'prompts', kind: 'prefix-id', prefix: 'prompt', dir: 'docs/prompts', digits: 3 },
+  ],
+  exempt: {
+    target_allowlist: ['scaffold/future-module.md', /^prompt-9\d\d$/],
+  },
+},
+```
+
+This is a third exemption granularity alongside the file-level
+(`historical_paths`) and line-level (`fenced_code`, `self_qualifying`, …)
+predicates every content rule shares via `lib/exempt.js` — and it is
+deliberately `dead_citations`-specific, not a fourth general predicate, because
+only this rule resolves an external citation target in the first place. The
+distinction matters on a line that carries two unrelated citations, one that
+should stay exempt and one that should not — for example a line citing both
+`` `scaffold/future-module.md` `` (allowlisted) and `` `docs/missing.md` ``
+(not). With `target_allowlist` as above, that line still reports the second
+citation, because the check runs per match against the cited target, not per
+line. A line-level exemption could not make that distinction — allowlisting
+the line would silently mask the unrelated dead citation sharing it.
 
 ## Development
 

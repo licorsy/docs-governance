@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { isHistoricalPath, exemptLineSet } = require('../lib/exempt');
+const { isHistoricalPath, exemptLineSet, isExemptTarget } = require('../lib/exempt');
 
 test('a path under a historical prefix is exempt', () => {
   assert.ok(isHistoricalPath('logs/sessions/2026-07-29-foo.md', ['logs/sessions', 'docs/reports']));
@@ -70,4 +70,19 @@ test('with no exemption configured, nothing is exempt', () => {
   const content = 'são 37 arquivos\n- v1.1: são 30 arquivos';
   const exempt = exemptLineSet(content, {});
   assert.strictEqual(exempt.size, 0);
+});
+
+test('isExemptTarget: an exact string in target_allowlist exempts a matching target', () => {
+  assert.ok(isExemptTarget('scaffold/future-module.md', ['scaffold/future-module.md', 'other.md']));
+  assert.ok(!isExemptTarget('docs/missing.md', ['scaffold/future-module.md', 'other.md']));
+});
+
+test('isExemptTarget: a RegExp entry exempts a matching target', () => {
+  assert.ok(isExemptTarget('prompt-999', [/^prompt-9\d\d$/]));
+  assert.ok(!isExemptTarget('prompt-042', [/^prompt-9\d\d$/]));
+});
+
+test('isExemptTarget: with no target_allowlist configured, nothing is exempt', () => {
+  assert.ok(!isExemptTarget('docs/missing.md', undefined));
+  assert.ok(!isExemptTarget('docs/missing.md', []));
 });
