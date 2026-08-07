@@ -62,12 +62,14 @@ this step is how an audit loop fails to converge.
 ## The rule that makes this get cheaper over time
 
 **Every finding from layer 4 that turns out to be mechanically detectable must
-become a rule in layer 1.** Report it to the user as such and propose the
-config entry. A defect class that stays in the model layer costs tokens forever;
-moved down, it costs nothing again, permanently. `fragment_sync`,
+become a rule.** Report it to the user as such and propose the config entry.
+A defect class that stays in the model layer costs tokens forever; moved to a
+rule, most rule types still need `shadow: false` set explicitly before they
+stop costing tokens — see "The ratchet" in the main README. `fragment_sync`,
 `dead_citations`, and `numbered_reference_consistency` are three such
-promotions already in the engine — check whether a new finding fits one of
-them before proposing a new rule.
+promotions already in the engine (`fragment_sync` isn't shadow-gated at all;
+the other two default to shadow like most content rules) — check whether a
+new finding fits one of them before proposing a new rule.
 
 Never edit documents from inside layers 4–5 — the auditor is read-only by tool
 grant (`Read, Grep, Glob` only); the verifier is read-only by instruction and
