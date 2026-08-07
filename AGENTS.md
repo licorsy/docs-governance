@@ -64,11 +64,12 @@ feat/* (also fix/, refactor/, docs/, chore/, hotfix/)  ->  develop  ->  staging 
   every branch requires 0 approvals by design (solo maintainer), so what
   makes `develop` safe to automate is that errors there are cheap to revert,
   not a lighter review requirement.
-- Merging into `staging` or `main` always requires **explicit human confirmation
-  before the PR is even opened**, and the merge itself is a human action, not
-  an automated one — even when the request comes from the repo owner using
-  their own credentials. See the permission model in
-  `agents/git-governance-advisor.md`.
+- Opening a promotion PR into `staging` or `main` needs no confirmation.
+  Merging one **always requires explicit human confirmation**, given after
+  the PR exists — the merge itself is a human action, not an automated one,
+  even when the request comes from the repo owner using their own
+  credentials, and even in the same breath as the request to open it. See the
+  permission model in `agents/git-governance-advisor.md`.
 
 ## Local validation layer (primary)
 
