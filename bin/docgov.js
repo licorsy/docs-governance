@@ -153,8 +153,16 @@ function cmdCheck(args) {
       continue;
     }
 
+    // internal-links reports finding.file as an absolute path (its
+    // walk_root falls back to process.cwd(), unlike every other rule's
+    // config-relative scope_dirs) — pre-existing, and it silently broke
+    // --changed for that rule too, not just this new --scope-files. Fixed
+    // here, at the one place that compares findings against a scope set,
+    // rather than in every rule.
     let findings = result.findings;
-    if (scope) findings = findings.filter((f) => scope.has(f.file));
+    if (scope) {
+      findings = findings.filter((f) => scope.has(path.isAbsolute(f.file) ? path.relative(cwd, f.file) : f.file));
+    }
 
     if (findings.length === 0) {
       // Under --changed/--scope-files the summary count is for the whole
