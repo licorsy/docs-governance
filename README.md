@@ -39,7 +39,7 @@ one cannot settle. **Layers 1–3 cost no tokens at all.**
 | 1 | `docgov check --changed` in `pre-commit` | ~50 ms — catches drift before it exists |
 | 2 | `docgov check` in CI | ~2 s, whole repository |
 | 3 | `ctxlint` context-file hygiene scan | zero tokens — token/staleness analysis on context files |
-| 4 | `doc-consistency-auditor` subagent | tokens — contradiction, ambiguity, description-vs-norm |
+| 4 | `doc-consistency-auditor` subagent | tokens — contradiction, ambiguity, description-vs-norm. Scoped by default to what `docgov changed-scope` reports (changed files + direct referrers); `/docgov-audit --full` forces the whole corpus — see that command's own file for the mechanism |
 | 5 | `fix-verifier` subagent | tokens — regressions the fixes themselves introduced |
 
 This is the canonical numbering — `/docgov-audit` (the command that drives an
