@@ -327,7 +327,7 @@ module.exports = {
     // ---- Phase 4: fragment/citation/numbered-reference rules promoted from
     // repeated layer-4 (LLM-audit) findings — see README's "The ratchet" ----
     // fragment_sync: { fragments: [
-    //   { id: 'branch-flow', source: 'README.md', destinations: ['CLAUDE.md'] },
+    //   { id: 'branch-flow', source: 'AGENTS.md', destinations: ['README.md'] },
     // ] },
     // dead_citations: { scope_dirs: ${list(d.scopeDirs)}, patterns: [
     //   { id: 'md-files', kind: 'filename' },

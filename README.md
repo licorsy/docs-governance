@@ -42,15 +42,24 @@ one cannot settle. **Layers 1–3 cost no tokens at all.**
 | 4 | `doc-consistency-auditor` subagent | tokens — contradiction, ambiguity, description-vs-norm |
 | 5 | `fix-verifier` subagent | tokens — regressions the fixes themselves introduced |
 
-The ratchet that makes this cheaper over time: **any finding from layer 4 that
-turns out to be mechanically detectable becomes a rule in layer 1.** Moved down,
-that defect class never costs a token again. This is exactly what happened for
-fragment duplication, dead inline-code citations, and layer/step-number drift —
-the three newest rules in the table above.
-
 This is the canonical numbering — `/docgov-audit` (the command that drives an
 audit session) names its own steps against these same layer numbers, starting
 at 2 since layer 1 is a `pre-commit` hook and not part of a manual session.
+
+### The ratchet
+
+The ratchet that makes this cheaper over time: **any finding from layer 4 that
+turns out to be mechanically detectable becomes a rule.** For rule types that
+default to shadow mode — `declared_counts`, `sum_decomposition`, `facts`,
+`version_citations`, `dead_citations`, `numbered_reference_consistency` (see
+the note under the Rules table below) — that rule reports only, and never
+fails `check`/CI or runs under `--changed`, until a config explicitly sets
+`shadow: false` on it. `fragment_sync` is not a shadow-gated rule type at all:
+once a repository configures it, the check blocks immediately.
+`git-governance`'s own `AGENTS.md`/`README.md` pairing is the worked, blocking
+example (see "Adopting the new rules" below) — this engine's own docs don't
+configure `fragment_sync`, `dead_citations`, or `numbered_reference_consistency`
+at all yet, only `facts`, already `shadow: false` (see `.docgov.config.js`).
 
 ## Install
 
@@ -178,11 +187,12 @@ with a mechanical one (see "The ratchet" above). Each is inert until a
 repository declares what to check.
 
 **`fragment_sync`** — for prose duplicated verbatim across files with
-nothing keeping the copies in sync. Example: `licorsy/git-governance`'s
-`README.md` and `AGENTS.md` both currently contain the byte-identical
-line `feat/* (also fix/, refactor/, docs/, chore/, hotfix/)  ->  develop  ->  staging  ->  main`, with no mechanism enforcing that. Wrapping that
-line in `<!-- fragment:branch-flow:start/end -->` markers in both files and
-configuring:
+nothing keeping the copies in sync. Worked example, already shipped in
+`licorsy/git-governance`: its `AGENTS.md` and `README.md` both contain the
+byte-identical line `feat/* (also fix/, refactor/, docs/, chore/, hotfix/)  ->  develop  ->  staging  ->  main`.
+The line is wrapped in `<!-- fragment:branch-flow:start/end -->` markers in
+both files (source `AGENTS.md`, destination `README.md`), and that repo's
+`.docgov.config.js` configures:
 
 ```js
 fragment_sync: {
@@ -192,13 +202,13 @@ fragment_sync: {
 },
 ```
 
-turns the next silent drift between those two files into a `docgov check`
-failure instead of another LLM-audit finding. In the real `git-governance`
-repository that line sits inside a fenced (` ```text `) diagram, so the
-markers have to wrap the fence itself rather than sit inside it — an HTML
-comment placed inside a fenced code block renders as literal text, not a
-comment, and `markedBlockLines` doesn't care either way as long as the
-markers themselves are outside the fence.
+which turns any future silent drift between those two files into a `docgov
+check` failure instead of another LLM-audit finding. In that real repository
+the line sits inside a fenced (` ```text `) diagram, so the markers wrap the
+fence itself rather than sit inside it — an HTML comment placed inside a
+fenced code block renders as literal text, not a comment, and
+`markedBlockLines` doesn't care either way as long as the markers themselves
+are outside the fence.
 
 `fragment_sync` findings are attributed to the destination file, not the
 source, so editing only the source and forgetting to update a destination
