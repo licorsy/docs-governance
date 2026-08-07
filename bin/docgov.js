@@ -15,8 +15,10 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const { load } = require('../lib/config');
-const { walkScoped } = require('../lib/walk');
+const { walkScoped, walkTree } = require('../lib/walk');
 const { parseFrontmatter } = require('../lib/frontmatter');
+const { changedFiles } = require('../lib/git');
+const { buildReferenceGraph, expandWithReferrers } = require('../lib/references');
 
 const VERSION = '1.5.0';
 
@@ -75,6 +77,21 @@ function stagedMarkdown() {
   }
 }
 
+// Reads the JSON array a `docgov changed-scope` run produced (see
+// cmdChangedScope) — the file list `check --scope-files` filters findings
+// down to. Same "filter findings after they're computed" shape as
+// `--changed`'s `stagedMarkdown()`, just sourced from a file instead of git's
+// index — see the README/AGENTS.md note on why this isn't a before-the-read
+// skip.
+function scopeFromFile(filePath) {
+  try {
+    const list = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return new Set(list.map((f) => f.split('/').join(path.sep)));
+  } catch (err) {
+    return null;
+  }
+}
+
 function cmdCheck(args) {
   const cwd = process.cwd();
   let loaded;
@@ -93,6 +110,16 @@ function cmdCheck(args) {
   if (args.flags.changed && staged === null) {
     console.error('docgov: --changed needs a git repository with a staged set; running unfiltered (shadow rules stay skipped under --changed)');
   }
+
+  const explicitScope = args.flags['scope-files'] ? scopeFromFile(args.flags['scope-files']) : null;
+  if (args.flags['scope-files'] && explicitScope === null) {
+    console.error(`docgov: --scope-files could not read/parse "${args.flags['scope-files']}"; running unfiltered`);
+  }
+
+  // At most one is normally given; --changed (pre-commit's staged set) wins
+  // if both are, since it's the narrower, git-index-verified one.
+  const scope = staged || explicitScope;
+  const scopeLabel = staged ? 'staged files' : 'scope';
 
   let failed = 0;
 
@@ -127,14 +154,14 @@ function cmdCheck(args) {
     }
 
     let findings = result.findings;
-    if (staged) findings = findings.filter((f) => staged.has(f.file));
+    if (scope) findings = findings.filter((f) => scope.has(f.file));
 
     if (findings.length === 0) {
-      // Under --changed the summary count is for the whole repository, not
-      // what was filtered; saying "all good" with a number that doesn't
-      // match the reported scope would be misleading. Hence the explicit
-      // label.
-      console.log(tag + (staged ? `[${rule.id}] no findings in staged files` : result.okSummary));
+      // Under --changed/--scope-files the summary count is for the whole
+      // repository, not what was filtered; saying "all good" with a number
+      // that doesn't match the reported scope would be misleading. Hence the
+      // explicit label.
+      console.log(tag + (scope ? `[${rule.id}] no findings in ${scopeLabel}` : result.okSummary));
       continue;
     }
 
@@ -152,6 +179,44 @@ function cmdCheck(args) {
   }
 
   return failed > 0 ? 1 : 0;
+}
+
+// ---------------------------------------------------------------------------
+// changed-scope — prints, as a JSON array, the incremental review scope:
+// files that changed relative to a boundary (--base-sha or --since, see
+// lib/git.js) plus whoever in the corpus directly references one of them
+// (lib/references.js, one hop). Feeds both `check --scope-files` and the
+// `docgov-audit` command's incremental Layer 4 — the corpus it searches for
+// referrers is the same whole-tree walk `internal-links` already uses
+// (walk_root/exclude_dir_names), not any one rule's scope_dirs, since a
+// reference can come from outside a content rule's configured scope.
+
+function cmdChangedScope(args) {
+  const cwd = process.cwd();
+  let loaded;
+  try {
+    loaded = load(cwd, args.flags.config);
+  } catch (err) {
+    console.error(`docgov: ${err.message}`);
+    return 2;
+  }
+
+  const changed = changedFiles({ baseSha: args.flags['base-sha'], since: args.flags.since });
+  if (changed === null) {
+    console.error('docgov: changed-scope needs --base-sha or --since');
+    return 2;
+  }
+
+  const { config } = loaded;
+  const linkCfg = (config.rules || {})['internal-links'] || {};
+  const corpus = walkTree(linkCfg.walk_root || cwd, linkCfg.exclude_dir_names || []);
+
+  const touched = changed.filter((f) => f.status !== 'D').map((f) => f.file);
+  const graph = buildReferenceGraph(corpus);
+  const scope = expandWithReferrers(touched, graph);
+
+  console.log(JSON.stringify(scope));
+  return 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -402,21 +467,36 @@ function cmdInit(args) {
 
 const USAGE = `docgov ${VERSION} — mechanical documentation-consistency checks
 
-  docgov check       [--config <path>] [--changed] [--base-sha <sha>] [--rule <id,...>]
-  docgov init        [--hook] [--force]
+  docgov check         [--config <path>] [--changed] [--scope-files <path>]
+                        [--base-sha <sha>] [--rule <id,...>]
+  docgov changed-scope  [--base-sha <sha> | --since <expr>] [--config <path>]
+  docgov init           [--hook] [--force]
   docgov sync-status
 
-  check       run every enabled rule; exit 1 on findings, 2 on setup error.
-              Rules in shadow mode (\`shadow: true\`, on by default for the
-              Phase 2 content rules — see lib/config.js) never fail the
-              process and never run under --changed; findings print prefixed
-              "[shadow]"
-  --changed   report only findings in staged files (for pre-commit)
-  --base-sha  base commit for the version-bump rule (or BASE_SHA env var)
-  init        generate .docgov.config.js by discovering this repository's shape
-  --hook      also install .git/hooks/pre-commit
-  sync-status per-target report of rules.sync_destinations (OK and STALE both
-              printed, not just failures); exit 1 if any target is stale
+  check         run every enabled rule; exit 1 on findings, 2 on setup error.
+                Rules in shadow mode (\`shadow: true\`, on by default for the
+                Phase 2 content rules — see lib/config.js) never fail the
+                process and never run under --changed; findings print
+                prefixed "[shadow]"
+  --changed     report only findings in staged files (for pre-commit)
+  --scope-files report only findings in the files listed in this JSON array
+                (typically \`docgov changed-scope\`'s own output) — the
+                incremental review scope, for day-to-day use outside
+                pre-commit
+  --base-sha    base commit for the version-bump rule and for
+                \`changed-scope\` (or BASE_SHA env var)
+  changed-scope prints, as a JSON array, the files changed since --base-sha's
+                merge-base (or inside the --since window) plus whoever in the
+                corpus directly references one of them (one hop) — feeds
+                \`check --scope-files\` and the \`docgov-audit\` command's
+                incremental mode
+  --since       time-window boundary for changed-scope, e.g. "1 day ago" —
+                alternative to --base-sha, for ad-hoc windows outside a
+                branch's merge-base
+  init          generate .docgov.config.js by discovering this repository's shape
+  --hook        also install .git/hooks/pre-commit
+  sync-status   per-target report of rules.sync_destinations (OK and STALE both
+                printed, not just failures); exit 1 if any target is stale
 `;
 
 function main() {
@@ -427,6 +507,7 @@ function main() {
   if (!cmd || args.flags.help) { console.log(USAGE); return cmd ? 0 : 2; }
 
   if (cmd === 'check') return cmdCheck(args);
+  if (cmd === 'changed-scope') return cmdChangedScope(args);
   if (cmd === 'init') return cmdInit(args);
   if (cmd === 'sync-status') return cmdSyncStatus();
 
