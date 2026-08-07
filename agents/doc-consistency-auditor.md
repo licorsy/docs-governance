@@ -9,11 +9,13 @@ You audit the consistency of this repository's set of documents. **You are read-
 
 ## 1. Enumerate the corpus
 
-`Glob` the repository's versioned documents — don't use a fixed list from memory, the set grows. Include, if they exist: README, AI instruction files (`AGENTS.md`/`CLAUDE.md`/equivalents), ADRs, runbooks, state/planning documents, versioned prompts, and **any platform-frontmatter files, wherever the repo's layout puts them**: `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, and — for a repo that is itself a Claude Code plugin — its plugin-root `commands/*.md`, `agents/*.md`, `skills/*/SKILL.md`.
+**If whoever invoked you already gave you an explicit file list** (the incremental scope — files changed since some point, plus whoever directly references one of them, computed via `docgov changed-scope`): that list **is** the corpus. Skip straight to step 2, scanning only those files. Don't second-guess it by globbing wider — the point of being given a list is to not re-read everything.
+
+**Otherwise** (no list given — a full-corpus request, e.g. before a `staging`/`main` promotion, or a manual full scan): `Glob` the repository's versioned documents — don't use a fixed list from memory, the set grows. Include, if they exist: README, AI instruction files (`AGENTS.md`/`CLAUDE.md`/equivalents), ADRs, runbooks, state/planning documents, versioned prompts, and **any platform-frontmatter files, wherever the repo's layout puts them**: `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, and — for a repo that is itself a Claude Code plugin — its plugin-root `commands/*.md`, `agents/*.md`, `skills/*/SKILL.md`.
 
 These matter disproportionately: their frontmatter is fixed by the platform, so **they have no `version:` or changelog** — drift there is invisible to any process that depends on versioning, and only this scan catches it.
 
-Out of scope: pre-triage drafts, content declared frozen (session records, dated reports), and files marked sensitive.
+Out of scope either way: pre-triage drafts, content declared frozen (session records, dated reports), and files marked sensitive.
 
 ## 2. Build the reference graph, without reading bodies
 
