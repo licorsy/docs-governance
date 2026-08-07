@@ -22,14 +22,14 @@ module.exports = {
       // Claude Code parses — not this engine's document schema. `description`
       // is the field both kinds share and the one routing actually needs.
       //
-      // CLAUDE.md carries the full org schema (title, doc_type, description,
-      // status, version, created, updated, language) under the org-wide
-      // decision that every tracked Markdown file is enumerable. Only
-      // `description` is ENFORCED, because this rule applies one `required`
-      // list to everything in scope and the manifests above cannot satisfy
-      // the other seven. Enforcing both needs two rules with independent
-      // `required` lists — an engine change, tracked rather than worked
-      // around here.
+      // AGENTS.md and CLAUDE.md both carry the full org schema (title,
+      // doc_type, description, status, version, created, updated, language)
+      // under the org-wide decision that every tracked Markdown file is
+      // enumerable. Only `description` is ENFORCED, because this rule
+      // applies one `required` list to everything in scope and the
+      // manifests above cannot satisfy the other seven. Enforcing both
+      // needs two rules with independent `required` lists — an engine
+      // change, tracked rather than worked around here.
       //
       // README.md stays out: it is the rendered repository landing page, and
       // GitHub renders frontmatter there as a visible table.
@@ -79,8 +79,12 @@ module.exports = {
       // NOT shadow. `facts` ships shadow-on, which reports and never fails —
       // and a pin that only reports is precisely what let the first entry
       // below drift unnoticed in the repository that SHIPS this rule. Turning
-      // it off also makes it run under `--changed`, so pre-commit catches
-      // drift rather than CI at promotion time.
+      // it off also makes it ELIGIBLE to run under `--changed` — but that only
+      // matters once the local `docgov-changed` pre-commit hook is actually
+      // installed, and in this repository it currently isn't (see the
+      // commented `repo: local` entry in `.pre-commit-config.yaml`). Until
+      // then, this rule's drift is caught remotely, on `staging`/`main`
+      // promotion PRs, not locally.
       shadow: false,
       scope_dirs: ['agents', 'commands'],
       root_files: ['AGENTS.md', 'CLAUDE.md', 'README.md'],
