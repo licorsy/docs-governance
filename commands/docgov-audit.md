@@ -1,6 +1,6 @@
 ---
 description: Audit this repository's documents for consistency, cheapest layer first — deterministic checks before any model work.
-argument-hint: "[scope or focus, optional]"
+argument-hint: "[--full | scope or focus, optional]"
 ---
 
 Audit this repository for documentation drift. **Work in order of cost. Do not skip ahead.**
@@ -49,8 +49,24 @@ figures, however, are correct and are often the highest-value output here.
 Only now, and only for what layers 2–3 structurally cannot see: contradiction
 requiring judgement, ambiguity, *description vs. norm*, *artefact vs. generator*.
 
-Launch the `doc-consistency-auditor` subagent. If the user named a scope in the
-arguments, pass it through; otherwise ask for the full corpus scan.
+**Default: incremental.** Run
+`node "${CLAUDE_PLUGIN_ROOT}/bin/docgov.js" changed-scope --base-sha develop`
+(swap in whatever the repository's integration branch actually is, if not
+`develop`) and pass its JSON output to the `doc-consistency-auditor` subagent
+as its explicit scope — the files changed since this branch forked, plus
+whoever directly references one of them. This is the day-to-day path: most
+work touches a narrow slice of the corpus, and re-reading everything on every
+audit is exactly the cost this layer exists to avoid paying twice.
+
+**`--full` (or the user names a scope in the arguments): full corpus scan.**
+Skip `changed-scope` and launch the `doc-consistency-auditor` subagent with no
+explicit list — its own Step 1 then globs the whole corpus, same as before
+this incremental mode existed. Reserve this for before a `staging`/`main`
+promotion, or a periodic manual pass — the safety net that catches drift
+between documents neither side directly cites, which the one-hop incremental
+scope structurally can't reach. If the user named a scope in the arguments
+instead, pass that through unchanged and skip `changed-scope` too — an
+explicit user-named scope always wins over the default.
 
 ## Layer 5 — after you fix anything
 
