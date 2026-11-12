@@ -17,7 +17,7 @@ const { execFileSync } = require('child_process');
 const { load } = require('../lib/config');
 const { walkScoped, walkTree } = require('../lib/walk');
 const { parseFrontmatter } = require('../lib/frontmatter');
-const { changedFiles } = require('../lib/git');
+const { changedFiles, stagedMarkdown } = require('../lib/git');
 const { buildReferenceGraph, expandWithReferrers } = require('../lib/references');
 
 const VERSION = '1.5.0';
@@ -64,23 +64,28 @@ function parseArgs(argv) {
   return args;
 }
 
-function stagedMarkdown() {
-  try {
-    return new Set(
-      execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], { encoding: 'utf8' })
-        .split('\n')
-        .filter((f) => f.endsWith('.md'))
-        .map((f) => f.split('/').join(path.sep)),
-    );
-  } catch {
-    return null;
+// Why `--changed` fell back to an unfiltered run, in words the user can act
+// on. The reasons come from lib/git.js's stagedMarkdown().
+function stagedFailureMessage(reason) {
+  const tail = 'running unfiltered (shadow rules stay skipped under --changed)';
+  if (reason === 'wsl-windows-node') {
+    return [
+      `docgov: --changed could not read the staged set: this node is a Windows build (process.platform=win32) running on a WSL path (${process.cwd()}).`,
+      '  Its `git` is Git for Windows, which cannot use a UNC working directory, so it never sees this repository.',
+      '  Fix: put a WSL-native node first on PATH (e.g. nvm) — `node -p process.platform` must print "linux".',
+      `  ${tail}`,
+    ].join('\n');
   }
+  if (reason === 'not-a-repo') {
+    return `docgov: --changed needs a git repository, and ${process.cwd()} is not inside one; ${tail}`;
+  }
+  return `docgov: --changed could not read the staged set (${reason}); ${tail}`;
 }
 
 // Reads the JSON array a `docgov changed-scope` run produced (see
 // cmdChangedScope) — the file list `check --scope-files` filters findings
 // down to. Same "filter findings after they're computed" shape as
-// `--changed`'s `stagedMarkdown()`, just sourced from a file instead of git's
+// `--changed`'s `stagedMarkdown()` (lib/git.js), just sourced from a file instead of git's
 // index — see the README/AGENTS.md note on why this isn't a before-the-read
 // skip.
 function scopeFromFile(filePath) {
@@ -106,10 +111,9 @@ function cmdCheck(args) {
   for (const w of warnings) console.error(`docgov: warning: ${w}`);
 
   const only = args.flags.rule ? String(args.flags.rule).split(',') : null;
-  const staged = args.flags.changed ? stagedMarkdown() : null;
-  if (args.flags.changed && staged === null) {
-    console.error('docgov: --changed needs a git repository with a staged set; running unfiltered (shadow rules stay skipped under --changed)');
-  }
+  const stagedResult = args.flags.changed ? stagedMarkdown() : null;
+  const staged = stagedResult ? stagedResult.files : null;
+  if (stagedResult && staged === null) console.error(stagedFailureMessage(stagedResult.reason));
 
   const explicitScope = args.flags['scope-files'] ? scopeFromFile(args.flags['scope-files']) : null;
   if (args.flags['scope-files'] && explicitScope === null) {
@@ -419,8 +423,26 @@ const PRE_COMMIT = `#!/bin/sh
 # A false positive here is worse than a false negative: it teaches people to
 # use --no-verify. If this hook flags something wrong, FIX THE RULE or REMOVE
 # THE RULE.
-exec node "$DOCGOV_BIN" check --changed
+#
+# Under WSL2, \`node\` on PATH can be a Windows node.exe (a symlink into
+# /mnt/c). Its \`git\` is Git for Windows, which cannot see this repository, so
+# --changed would fall back to an unfiltered run (docs-governance#55). When
+# that happens, or node is missing, prefer the newest WSL-native nvm node.
+NODE=node
+if [ "$(uname -s)" = Linux ]; then
+  case "$(node -p process.platform 2>/dev/null)" in
+    win32*|'')
+      NVM_NODE="$(ls -d "$HOME"/.nvm/versions/node/*/bin/node 2>/dev/null | sort -V | tail -n1)"
+      [ -n "$NVM_NODE" ] && NODE="$NVM_NODE"
+      ;;
+  esac
+fi
+exec "$NODE" "$DOCGOV_BIN" check --changed
 `;
+
+function renderPreCommit(bin) {
+  return PRE_COMMIT.replace('$DOCGOV_BIN', bin.split(path.sep).join('/'));
+}
 
 function installHook(cwd) {
   const hookDir = path.join(cwd, '.git', 'hooks');
@@ -430,7 +452,7 @@ function installHook(cwd) {
   }
   const hookPath = path.join(hookDir, 'pre-commit');
   const bin = path.join(__dirname, 'docgov.js');
-  fs.writeFileSync(hookPath, PRE_COMMIT.replace('$DOCGOV_BIN', bin.split(path.sep).join('/')), 'utf8');
+  fs.writeFileSync(hookPath, renderPreCommit(bin), 'utf8');
   try { fs.chmodSync(hookPath, 0o755); } catch { /* Windows: no execute bit */ }
   console.log(`installed .git/hooks/pre-commit -> ${bin}`);
   return true;
@@ -527,4 +549,4 @@ if (require.main === module) {
   process.exitCode = main();
 }
 
-module.exports = { main, parseArgs, discover, VERSION };
+module.exports = { main, parseArgs, discover, renderPreCommit, VERSION };
