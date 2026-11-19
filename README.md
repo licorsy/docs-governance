@@ -128,6 +128,13 @@ repository uses, and proposes frozen-history directories from git history. It
 writes a commented `.docgov.config.js` you then edit. No tokens involved — it is
 `fs` and `git log`.
 
+**WSL2:** if `node` on `PATH` is a Windows `node.exe` (`node -p process.platform`
+prints `win32`), its `git` is Git for Windows, which cannot see a repository on
+a WSL path, so `check --changed` cannot read the staged set and runs unfiltered.
+It says so explicitly, and the hook `init --hook` installs prefers the newest
+WSL-native nvm `node` in that case. The lasting fix is a native `node` first on
+`PATH`.
+
 ## Rules
 
 | id | Checks |
