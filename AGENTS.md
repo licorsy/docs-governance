@@ -3,9 +3,9 @@ title: "AGENTS.md"
 doc_type: instruction
 description: "Git branch, commit, and merge policy in force for this repository, scaffolded from the git-governance plugin: the branch flow and prefix taxonomy, Conventional Commits, the autonomous-to-develop and human-gated-to-staging/main permission model (including the /promote-window exception), per-branch merge methods and branch lifecycle, the local and remote validation layers, and how companion plugins compose with it."
 status: active
-version: "2.4.0"
+version: "2.5.0"
 created: 2026-08-01
-updated: 2026-08-07
+updated: 2026-11-19
 language: en
 id: agents-instructions
 owner: Alexandre Clemente
@@ -23,6 +23,9 @@ Claude Code, scaffolded here from the `git-governance` plugin. Do not add
 project-specific detail that wouldn't make sense verbatim in another repo — the
 plugin's copy is the source, and this one is expected to stay a faithful
 scaffold of it.
+In a scaffolded copy, every unqualified "this plugin" and every bare
+`agents/`- or `scripts/`-prefixed path refers to `git-governance` and lives in
+that plugin's repository, not in the host repository.
 
 The frontmatter block above is the one exception, because it describes *this*
 repository. A scaffolded copy resets `created`, `updated`, and `owner` to the
