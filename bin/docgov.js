@@ -20,7 +20,7 @@ const { parseFrontmatter } = require('../lib/frontmatter');
 const { changedFiles, stagedMarkdown } = require('../lib/git');
 const { buildReferenceGraph, expandWithReferrers } = require('../lib/references');
 
-const VERSION = '1.5.0';
+const VERSION = require('../.claude-plugin/plugin.json').version;
 
 const RULES = [
   require('../lib/rules/frontmatter'),
