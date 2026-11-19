@@ -22,7 +22,10 @@ Portable Git branch/merge/commit governance for a solo maintainer working with
 Claude Code, scaffolded here from the `git-governance` plugin. Do not add
 project-specific detail that wouldn't make sense verbatim in another repo — the
 plugin's copy is the source, and this one is expected to stay a faithful
-scaffold of it.
+scaffold of it. Every unqualified "this plugin" and every bare `agents/`- or
+`scripts/`-prefixed path below refers to `git-governance` and lives in *that*
+repository. This repository is a plugin too (`docs-governance`), but its own
+`agents/` folder holds only `doc-consistency-auditor.md` and `fix-verifier.md`.
 
 The frontmatter block above is the one exception, because it describes *this*
 repository. A scaffolded copy resets `created`, `updated`, and `owner` to the

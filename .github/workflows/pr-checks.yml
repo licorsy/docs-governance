@@ -108,8 +108,15 @@ jobs:
   # today, so dependency-review passes trivially — it is wired now so the
   # coverage exists the moment one appears, rather than being remembered then.
   #
-  # GITLEAKS_LICENSE is optional and organization-level; gitleaks runs without
-  # it, with reduced functionality. See licorsy/platform-workflows' README.
+  # GITLEAKS_LICENSE is required for organization-owned repos and comes from
+  # the org-level secret via secrets: inherit; a private repo on GitHub Free
+  # also needs it at repository level, because org secrets don't reach it.
+  # pull-requests: read is granted here because gitleaks-action lists the PR's
+  # commits, a private repo refuses that without it, and a called workflow
+  # can't raise the caller's token (licorsy/platform-workflows README, #35).
   ci-security:
     uses: licorsy/platform-workflows/.github/workflows/ci-security.yml@v1
+    permissions:
+      contents: read
+      pull-requests: read
     secrets: inherit
